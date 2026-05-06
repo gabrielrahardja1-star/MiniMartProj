@@ -1,8 +1,8 @@
 export function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-AU', {
+  return new Intl.NumberFormat('id-ID', {
     style: 'currency',
-    currency: 'AUD',
-    minimumFractionDigits: 2,
+    currency: 'IDR',
+    minimumFractionDigits: 0,
   }).format(amount)
 }
 
