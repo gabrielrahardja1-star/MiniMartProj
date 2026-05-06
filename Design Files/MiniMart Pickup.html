@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MiniMart Pickup — Light Blue Redesign</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #E8EEF6; font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; }
+  #root { min-height: 100%; }
+  @keyframes mmpop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  /* hide scroll bars in inner panes for a cleaner mobile look */
+  *::-webkit-scrollbar { display: none; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="frames/design-canvas.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+  const { useState } = React;
+
+  // Build a multi-screen design canvas with several phones showing different states.
+
+  function PhoneFrame({ width = 390, height = 844, children, screenLabel }) {
+    return (
+      <div data-screen-label={screenLabel} style={{
+        width, height, background: window.T.bg, borderRadius: 48,
+        boxShadow: '0 30px 60px -20px rgba(12,35,64,0.25), 0 0 0 10px #1a1a1a, 0 0 0 11px #2a2a2a',
+        overflow: 'hidden', position: 'relative',
+        display: 'flex', flexDirection: 'column',
+        fontFamily: '-apple-system, "SF Pro Display", system-ui, sans-serif',
+      }}>
+        <window.StatusBar/>
+        {children}
+        <window.HomeIndicator/>
+      </div>
+    );
+  }
+
+  // Each artboard hosts an independent App instance so users can navigate any one
+  function LiveApp() {
+    return (
+      <PhoneFrame screenLabel="Interactive prototype">
+        <window.App/>
+      </PhoneFrame>
+    );
+  }
+
+  function Root() {
+    const DC = window.DesignCanvas, S = window.DCSection, A = window.DCArtboard;
+    return (
+      <DC title="MiniMart Pickup — Worker app redesign"
+          subtitle="Light-blue minimalist · Tap any screen to focus · The first artboard is fully interactive">
+        <S id="proto" title="Interactive prototype" description="Click around — add to cart, place an order, view the pickup pass.">
+          <A id="live" label="Full app · live" width={420} height={870}>
+            <LiveApp/>
+          </A>
+        </S>
+      </DC>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
+</script>
+</body>
+</html>

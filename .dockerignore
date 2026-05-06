@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+tests/
+
+# Virtual environments
+.venv
+venv
+env
+
+# Local database (production uses a Docker volume)
+*.db
+*.sqlite
+
+# Environment files (injected at runtime, never baked into the image)
+.env
+.env.local
+
+# Frontend (built separately in its own container)
+frontend/
+
+# Misc
+.DS_Store
