@@ -33,4 +33,5 @@ EXPOSE 8000
 
 # On startup: run Alembic migrations, then start the server
 CMD alembic upgrade head && \
+    python -m app.db.init_db && \
     uvicorn app.main:app --host 0.0.0.0 --port 8000
