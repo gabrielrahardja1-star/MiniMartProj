@@ -5,6 +5,23 @@ import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
+// ── Shared field components (must be outside WorkerSheet to avoid remount) ───
+const inputSt = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '12px 14px', borderRadius: 12,
+  border: `1px solid ${T.line}`, background: T.surface,
+  fontSize: 15, color: T.ink, fontFamily: FONT, outline: 'none',
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <div style={{ color: T.ink3, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
 // ── Add / Edit Worker sheet ───────────────────────────────────────────────────
 function WorkerSheet({ worker, open, onClose, onSaved }) {
   const isEdit = !!worker
@@ -49,22 +66,6 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
     } finally {
       setSaving(false)
     }
-  }
-
-  const inputSt = {
-    width: '100%', boxSizing: 'border-box',
-    padding: '12px 14px', borderRadius: 12,
-    border: `1px solid ${T.line}`, background: T.surface,
-    fontSize: 15, color: T.ink, fontFamily: FONT, outline: 'none',
-  }
-
-  function Field({ label, children }) {
-    return (
-      <div>
-        <div style={{ color: T.ink3, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
-        {children}
-      </div>
-    )
   }
 
   return (
