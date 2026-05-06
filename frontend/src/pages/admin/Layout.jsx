@@ -287,7 +287,7 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
             <Field label="Unit">
               <input value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })} style={inputSt} />
             </Field>
-            <Field label="Price (AUD)">
+            <Field label="Price (IDR)">
               <input type="number" step="0.10" value={draft.price}
                 onChange={e => setDraft({ ...draft, price: parseFloat(e.target.value) || 0 })}
                 style={inputSt} />
