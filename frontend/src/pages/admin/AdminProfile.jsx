@@ -13,7 +13,7 @@ export default function AdminProfile() {
   const menuItems = [
     { ic: 'trend',   label: 'Reports & exports',  action: () => navigate('/admin/reports') },
     { ic: 'doc',     label: 'Invoices',            action: () => navigate('/admin/invoices') },
-    { ic: 'profile', label: 'Manage workers',      action: null },
+    { ic: 'profile', label: 'Manage workers',      action: () => navigate('/admin/workers') },
     { ic: 'pkg',     label: 'Suppliers',           action: null },
   ]
 

@@ -53,6 +53,28 @@ class OrderAdminOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WorkerOut(BaseModel):
+    id: int
+    employee_id: str
+    name: str
+    role: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class WorkerCreateRequest(BaseModel):
+    employee_id: str
+    name: str
+    pin: str
+
+
+class WorkerUpdateRequest(BaseModel):
+    name: str | None = None
+    pin: str | None = None
+    is_active: bool | None = None
+
+
 class WorkerSpending(BaseModel):
     employee_id: str
     name: str

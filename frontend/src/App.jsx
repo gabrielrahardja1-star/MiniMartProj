@@ -14,6 +14,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
 import AdminInventory from './pages/admin/Products'
 import AdminProfile from './pages/admin/AdminProfile'
+import AdminWorkers from './pages/admin/AdminWorkers'
 import Invoices from './pages/admin/Invoices'
 import Reports from './pages/admin/Reports'
 
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="orders"    element={<AdminOrders />} />
               <Route path="inventory" element={<AdminInventory />} />
               <Route path="profile"   element={<AdminProfile />} />
+              <Route path="workers"   element={<AdminWorkers />} />
               <Route path="invoices"  element={<Invoices />} />
               <Route path="reports"   element={<Reports />} />
             </Route>

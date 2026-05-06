@@ -14,8 +14,12 @@ from app.schemas.admin import (
     ProductUpdateRequest,
     OrderAdminOut,
     OrderItemAdminOut,
+    WorkerOut,
+    WorkerCreateRequest,
+    WorkerUpdateRequest,
     WorkerSpending,
 )
+from app.core.security import hash_pin
 from app.core.deps import require_admin
 
 LOW_STOCK_THRESHOLD = 5
@@ -165,6 +169,58 @@ def cancel_order(
     order.updated_at = datetime.now(timezone.utc)
     db.commit()
     return _build_order_out(order)
+
+
+# ── Workers ───────────────────────────────────────────────────────────────────
+
+@router.get("/workers/", response_model=list[WorkerOut])
+def admin_list_workers(
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    return db.query(Worker).order_by(Worker.employee_id).all()
+
+
+@router.post("/workers/", response_model=WorkerOut, status_code=status.HTTP_201_CREATED)
+def admin_create_worker(
+    body: WorkerCreateRequest,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    if db.query(Worker).filter(Worker.employee_id == body.employee_id).first():
+        raise HTTPException(status_code=409, detail=f"Employee ID '{body.employee_id}' already exists")
+    worker = Worker(
+        employee_id=body.employee_id,
+        name=body.name,
+        pin_hash=hash_pin(body.pin),
+        role="worker",
+        is_active=True,
+    )
+    db.add(worker)
+    db.commit()
+    db.refresh(worker)
+    return worker
+
+
+@router.patch("/workers/{worker_id}", response_model=WorkerOut)
+def admin_update_worker(
+    worker_id: int,
+    body: WorkerUpdateRequest,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    worker = db.get(Worker, worker_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    if body.name is not None:
+        worker.name = body.name
+    if body.pin is not None:
+        worker.pin_hash = hash_pin(body.pin)
+    if body.is_active is not None:
+        worker.is_active = body.is_active
+    db.commit()
+    db.refresh(worker)
+    return worker
 
 
 # ── Reports ───────────────────────────────────────────────────────────────────
