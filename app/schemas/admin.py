@@ -31,6 +31,15 @@ class ProductUpdateRequest(BaseModel):
     is_active: bool | None = None
 
 
+class OrderItemAdminOut(BaseModel):
+    product_id: int
+    product_name: str
+    quantity: int
+    unit_price: float
+
+    model_config = {"from_attributes": True}
+
+
 class OrderAdminOut(BaseModel):
     id: int
     worker_id: int
@@ -39,6 +48,7 @@ class OrderAdminOut(BaseModel):
     status: str
     total: float
     created_at: datetime
+    items: list[OrderItemAdminOut] = []
 
     model_config = {"from_attributes": True}
 

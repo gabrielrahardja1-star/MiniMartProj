@@ -1,195 +1,192 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, AlertTriangle, Search, Package } from 'lucide-react'
+import { useOutletContext } from 'react-router-dom'
+import { T } from '../../utils/theme'
+import Ic from '../../components/Ic'
+import { ProductThumb } from './Layout'
 import { formatCurrency } from '../../utils/format'
-import Modal from '../../components/Modal'
-import Badge from '../../components/Badge'
-import Button from '../../components/Button'
-import EmptyState from '../../components/EmptyState'
-import PageHeader from '../../components/PageHeader'
-import { SkeletonRow } from '../../components/LoadingSkeleton'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
-function ProductForm({ product, onClose, onSaved }) {
-  const editing = !!product
-  const [form, setForm] = useState(
-    product
-      ? { name: product.name, sku: product.sku, price: product.price, stock: product.stock, unit: product.unit }
-      : { name: '', sku: '', price: '', stock: '', unit: 'unit' }
-  )
-  const [saving, setSaving] = useState(false)
+export default function AdminInventory() {
+  const { openEdit, refreshKey, refresh } = useOutletContext()
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+  const [filter, setFilter] = useState('all')
 
-  function set(field) { return e => setForm(f => ({ ...f, [field]: e.target.value })) }
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await api.get('/admin/products/')
+        setProducts(res.data)
+      } catch { /* ignore */ }
+      finally { setLoading(false) }
+    }
+    load()
+  }, [refreshKey])
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setSaving(true)
+  async function adjustStock(product, delta) {
+    const newStock = Math.max(0, product.stock + delta)
     try {
-      if (editing) {
-        await api.put(`/admin/products/${product.id}`, { name: form.name, price: +form.price, stock: +form.stock, unit: form.unit })
-      } else {
-        await api.post('/admin/products/', { ...form, price: +form.price, stock: +form.stock })
-      }
-      toast.success(editing ? 'Product updated' : 'Product created')
-      onSaved()
+      const res = await api.put(`/admin/products/${product.id}`, { stock: newStock })
+      setProducts(prev => prev.map(p => p.id === product.id ? res.data : p))
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to save')
-    } finally {
-      setSaving(false)
+      toast.error(err.response?.data?.detail || 'Failed to update stock')
     }
   }
 
-  const inputCls = "w-full border-2 border-slate-200 focus:border-amber-400 rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors duration-150"
-  const disabledCls = "bg-slate-50 text-slate-400 cursor-not-allowed border-slate-200"
+  const lowCount      = products.filter(p => p.is_active && p.stock > 0 && p.stock <= 5).length
+  const outCount      = products.filter(p => p.is_active && p.stock === 0).length
+  const inactiveCount = products.filter(p => !p.is_active).length
+
+  let list = products
+  if (filter === 'low')      list = products.filter(p => p.is_active && p.stock > 0 && p.stock <= 5)
+  if (filter === 'out')      list = products.filter(p => p.is_active && p.stock === 0)
+  if (filter === 'inactive') list = products.filter(p => !p.is_active)
+  if (q) list = list.filter(p => p.name.toLowerCase().includes(q.toLowerCase()))
+
+  const chips = [
+    { id: 'all',      label: 'All',          count: products.length },
+    { id: 'low',      label: 'Low stock',    count: lowCount,       color: T.warn },
+    { id: 'out',      label: 'Out of stock', count: outCount,       color: T.bad },
+    { id: 'inactive', label: 'Inactive',     count: inactiveCount,  color: T.ink3 },
+  ]
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="pf-name" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Product Name</label>
-        <input id="pf-name" value={form.name} onChange={set('name')} placeholder="e.g. Safety Gloves" required className={inputCls} />
+    <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
+      {/* Header */}
+      <div style={{ padding: '8px 20px 14px' }}>
+        <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{products.length} products</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>Inventory</div>
       </div>
-      <div>
-        <label htmlFor="pf-sku" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">SKU</label>
-        <input id="pf-sku" value={form.sku} onChange={set('sku')} placeholder="e.g. SFT-GLV-001" required
-          disabled={editing}
-          className={`${inputCls} ${editing ? disabledCls : ''}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="pf-unit" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Unit</label>
-        <input id="pf-unit" value={form.unit} onChange={set('unit')} placeholder="e.g. pair, box, each" required className={inputCls} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="pf-price" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Price (AUD)</label>
-          <input id="pf-price" type="number" step="0.01" min="0" value={form.price} onChange={set('price')} placeholder="0.00" required className={inputCls} />
-        </div>
-        <div>
-          <label htmlFor="pf-stock" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Stock</label>
-          <input id="pf-stock" type="number" min="0" value={form.stock} onChange={set('stock')} placeholder="0" required className={inputCls} />
-        </div>
-      </div>
-      <div className="flex gap-3 pt-2">
-        <Button type="button" variant="secondary" onClick={onClose} className="flex-1">Cancel</Button>
-        <Button type="submit" variant="primary" loading={saving} className="flex-1">{saving ? 'Saving…' : 'Save'}</Button>
-      </div>
-    </form>
-  )
-}
-
-export default function AdminProducts() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [modal, setModal] = useState(null) // null | 'new' | product object
-
-  const load = () => {
-    setLoading(true)
-    api.get('/admin/products/')
-      .then(r => setProducts(r.data))
-      .catch(() => toast.error('Failed to load products'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { load() }, [])
-
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  )
-
-  return (
-    <div>
-      <PageHeader
-        title="Inventory"
-        subtitle={`${products.length} products`}
-        action={
-          <Button variant="primary" icon={Plus} onClick={() => setModal('new')}>
-            Add Product
-          </Button>
-        }
-      />
 
       {/* Search */}
-      <div className="relative mb-4 max-w-sm">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name or SKU…"
-          className="w-full border-2 border-slate-200 focus:border-amber-400 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none transition-colors duration-150"
-        />
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              {['Name', 'SKU', 'Price', 'Stock', 'Unit', 'Status', ''].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-slate-500 font-semibold text-xs uppercase tracking-wide">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-12">
-                  <EmptyState icon={Package} title={search ? 'No results' : 'No products yet'} description={search ? `Nothing matches "${search}"` : 'Add your first product'} />
-                </td>
-              </tr>
-            ) : filtered.map(p => (
-              <tr key={p.id} className="hover:bg-amber-50/40 transition-colors duration-150">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`font-medium ${p.is_active ? 'text-slate-900' : 'text-slate-400'}`}>{p.name}</span>
-                    {p.low_stock && (
-                      <span className="inline-flex items-center gap-0.5 text-xs text-orange-600 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded-full font-medium">
-                        <AlertTriangle size={9} /> Low
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 font-mono text-slate-500 text-xs">{p.sku}</td>
-                <td className="px-4 py-3 text-slate-700">{formatCurrency(p.price)}</td>
-                <td className={`px-4 py-3 font-semibold ${p.low_stock ? 'text-orange-600' : 'text-slate-800'}`}>{p.stock}</td>
-                <td className="px-4 py-3 text-slate-500">{p.unit}</td>
-                <td className="px-4 py-3">
-                  <Badge
-                    status={p.is_active ? 'active' : 'inactive'}
-                    map={{ active: 'bg-green-100 text-green-700', inactive: 'bg-slate-100 text-slate-500' }}
-                    label={p.is_active ? 'Active' : 'Inactive'}
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => setModal(p)}
-                    aria-label={`Edit ${p.name}`}
-                    className="text-slate-400 hover:text-amber-600 hover:bg-amber-50 p-1.5 rounded-lg transition-all duration-150 cursor-pointer"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Modal
-        open={!!modal}
-        onClose={() => setModal(null)}
-        title={modal === 'new' ? 'New Product' : 'Edit Product'}
-      >
-        {modal && (
-          <ProductForm
-            product={modal === 'new' ? null : modal}
-            onClose={() => setModal(null)}
-            onSaved={() => { setModal(null); load() }}
+      <div style={{ padding: '0 20px 12px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16,
+        }}>
+          <Ic name="search" size={18} color={T.ink3} />
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search products"
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              fontSize: 15, color: T.ink,
+            }}
           />
-        )}
-      </Modal>
+          {q && (
+            <div onClick={() => setQ('')} style={{ display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+              <Ic name="close" size={16} color={T.ink3} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ padding: '0 0 14px' }}>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
+          {chips.map(c => {
+            const active = filter === c.id
+            return (
+              <div key={c.id} onClick={() => setFilter(c.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '9px 14px', borderRadius: 999,
+                background: active ? T.ink : T.surface,
+                border: `1px solid ${active ? T.ink : T.line}`,
+                color: active ? '#fff' : (c.color || T.ink2),
+                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, cursor: 'pointer',
+              }}>
+                {c.label}
+                {c.count > 0 && (
+                  <span style={{
+                    background: active ? 'rgba(255,255,255,0.2)' : T.surfaceAlt,
+                    color: active ? '#fff' : T.ink2,
+                    fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center',
+                  }}>{c.count}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Product list */}
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {loading ? (
+          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>Loading…</div>
+        ) : list.length === 0 ? (
+          <div style={{
+            background: T.surface, borderRadius: 18, padding: 30,
+            border: `1px dashed ${T.line}`, textAlign: 'center', color: T.ink3, fontSize: 14,
+          }}>No products match.</div>
+        ) : list.map(p => {
+          const out      = p.stock === 0
+          const low      = p.stock > 0 && p.stock <= 5
+          const inactive = !p.is_active
+          const chip =
+            inactive ? { label: 'Hidden',     bg: T.surfaceAlt, fg: T.ink3 } :
+            out      ? { label: 'Out',        bg: T.badSoft,    fg: T.bad } :
+            low      ? { label: `${p.stock}`, bg: T.warnSoft,   fg: T.warn } :
+                       { label: `${p.stock}`, bg: T.goodSoft,   fg: T.good }
+
+          return (
+            <div key={p.id} style={{
+              background: T.surface, borderRadius: 16, padding: 12,
+              border: `1px solid ${T.line}`,
+              opacity: inactive ? 0.7 : 1,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <ProductThumb name={p.name} size={48} radius={11} />
+                <div style={{ flex: 1, minWidth: 0 }} onClick={() => openEdit(p)}>
+                  <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{p.name}</div>
+                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{p.unit} · {formatCurrency(p.price)}</div>
+                </div>
+                <div style={{
+                  minWidth: 48, padding: '6px 10px', borderRadius: 10,
+                  background: chip.bg, color: chip.fg,
+                  fontSize: 13, fontWeight: 700, textAlign: 'center',
+                }}>{chip.label}</div>
+              </div>
+
+              <div style={{
+                marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.line}`,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>Stock</div>
+                <div style={{
+                  display: 'flex', alignItems: 'center',
+                  background: T.surfaceAlt, borderRadius: 10, padding: 2,
+                }}>
+                  <div onClick={() => adjustStock(p, -1)} style={{
+                    width: 28, height: 28, display: 'grid', placeItems: 'center', cursor: 'pointer',
+                  }}>
+                    <Ic name="minus" size={14} color={T.ink2} />
+                  </div>
+                  <div style={{ minWidth: 28, textAlign: 'center', fontWeight: 700, fontSize: 13, color: T.ink }}>{p.stock}</div>
+                  <div onClick={() => adjustStock(p, 1)} style={{
+                    width: 28, height: 28, display: 'grid', placeItems: 'center', cursor: 'pointer',
+                  }}>
+                    <Ic name="plus" size={14} color={T.ink2} />
+                  </div>
+                </div>
+                <div style={{ flex: 1 }} />
+                <div onClick={() => openEdit(p)} style={{
+                  padding: '7px 12px', borderRadius: 10, background: T.brandSoft, color: T.brand,
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <Ic name="edit" size={13} color={T.brand} /> Edit
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ height: 16 }} />
     </div>
   )
 }

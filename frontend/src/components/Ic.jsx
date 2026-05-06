@@ -34,6 +34,11 @@ export default function Ic({ name, size = 22, color = 'currentColor', stroke = 1
     case 'helmet':  return wrap(<><path d="M4 16h16v3H4z"/><path d="M5 16a7 7 0 0 1 14 0"/><path d="M9 9V6h6v3"/></>)
     case 'grid':    return wrap(<><rect x="4" y="4" width="7" height="7" rx="1.2"/><rect x="13" y="4" width="7" height="7" rx="1.2"/><rect x="4" y="13" width="7" height="7" rx="1.2"/><rect x="13" y="13" width="7" height="7" rx="1.2"/></>)
     case 'logout':  return wrap(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>)
+    case 'alert':   return wrap(<><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 11v4M12 18h0"/></>)
+    case 'doc':     return wrap(<><path d="M7 3h7l5 5v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5"/><path d="M9 14h6M9 18h6"/></>)
+    case 'trend':   return wrap(<><path d="m4 17 5-5 4 4 7-8"/><path d="M14 8h6v6"/></>)
+    case 'edit':    return wrap(<><path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13 5 4 4"/></>)
+    case 'pkg':     return wrap(<><path d="M3 7v10l9 4 9-4V7"/><path d="m3 7 9 4 9-4-9-4-9 4Z"/><path d="M12 11v10"/></>)
     default: return null
   }
 }

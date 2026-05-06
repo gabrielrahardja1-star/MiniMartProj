@@ -10,8 +10,10 @@ import Shop from './pages/worker/Shop'
 import Orders from './pages/worker/Orders'
 import Profile from './pages/worker/Profile'
 import AdminLayout from './pages/admin/Layout'
-import AdminProducts from './pages/admin/Products'
+import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
+import AdminInventory from './pages/admin/Products'
+import AdminProfile from './pages/admin/AdminProfile'
 import Invoices from './pages/admin/Invoices'
 import Reports from './pages/admin/Reports'
 
@@ -53,13 +55,15 @@ export default function App() {
               <Route path="/profile" element={<Profile />} />
             </Route>
 
-            {/* Admin routes */}
+            {/* Admin routes — mobile shell with bottom tab bar */}
             <Route path="/admin" element={<RequireAuth role="admin"><AdminLayout /></RequireAuth>}>
-              <Route index element={<Navigate to="products" replace />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="invoices" element={<Invoices />} />
-              <Route path="reports" element={<Reports />} />
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="orders"    element={<AdminOrders />} />
+              <Route path="inventory" element={<AdminInventory />} />
+              <Route path="profile"   element={<AdminProfile />} />
+              <Route path="invoices"  element={<Invoices />} />
+              <Route path="reports"   element={<Reports />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

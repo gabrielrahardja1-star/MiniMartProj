@@ -13,6 +13,7 @@ from app.schemas.admin import (
     ProductCreateRequest,
     ProductUpdateRequest,
     OrderAdminOut,
+    OrderItemAdminOut,
     WorkerSpending,
 )
 from app.core.deps import require_admin
@@ -84,6 +85,15 @@ def _build_order_out(order: Order) -> OrderAdminOut:
         status=order.status,
         total=float(order.total),
         created_at=order.created_at,
+        items=[
+            OrderItemAdminOut(
+                product_id=item.product_id,
+                product_name=item.product.name if item.product else f"Product #{item.product_id}",
+                quantity=item.quantity,
+                unit_price=float(item.unit_price),
+            )
+            for item in order.items
+        ],
     )
 
 
@@ -96,7 +106,10 @@ def admin_list_orders(
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
-    q = db.query(Order).options(joinedload(Order.worker))
+    q = db.query(Order).options(
+        joinedload(Order.worker),
+        joinedload(Order.items).joinedload(OrderItem.product),
+    )
     if status_filter:
         q = q.filter(Order.status == status_filter)
     if worker_id:
@@ -115,7 +128,10 @@ def fulfill_order(
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
-    order = db.query(Order).options(joinedload(Order.worker)).filter(Order.id == order_id).first()
+    order = db.query(Order).options(
+        joinedload(Order.worker),
+        joinedload(Order.items).joinedload(OrderItem.product),
+    ).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "pending":
@@ -132,7 +148,10 @@ def cancel_order(
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
-    order = db.query(Order).options(joinedload(Order.worker)).filter(Order.id == order_id).first()
+    order = db.query(Order).options(
+        joinedload(Order.worker),
+        joinedload(Order.items).joinedload(OrderItem.product),
+    ).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status not in ("pending",):

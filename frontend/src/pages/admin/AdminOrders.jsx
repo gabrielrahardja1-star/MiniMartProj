@@ -1,192 +1,210 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react'
-import { formatCurrency, formatDate } from '../../utils/format'
-import { ORDER_STATUS_CLASSES, ORDER_STATUS_LABELS } from '../../utils/status'
-import Badge from '../../components/Badge'
-import EmptyState from '../../components/EmptyState'
-import PageHeader from '../../components/PageHeader'
-import { SkeletonRow } from '../../components/LoadingSkeleton'
+import { useOutletContext } from 'react-router-dom'
+import { T } from '../../utils/theme'
+import { formatCurrency, formatDateTime } from '../../utils/format'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
-const TABS = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'fulfilled', label: 'Fulfilled' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
+const STATUS_META = {
+  pending:   { label: 'Pending',   color: '#A06B0E', bg: '#FDEFD1' },
+  fulfilled: { label: 'Fulfilled', color: '#0E7A4D', bg: '#D6F3E6' },
+  cancelled: { label: 'Cancelled', color: '#991B1B', bg: '#FCE0E0' },
+}
 
-function OrderRow({ order, onRefresh }) {
-  const [expanded, setExpanded] = useState(false)
-  const [confirming, setConfirming] = useState(null) // 'cancel' | null
+function workerInitials(name = '') {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
 
-  async function fulfill() {
-    try { await api.put(`/admin/orders/${order.id}/fulfill`); toast.success('Order fulfilled'); onRefresh() }
-    catch (err) { toast.error(err.response?.data?.detail || 'Failed') }
-  }
-
-  async function cancel() {
-    try { await api.put(`/admin/orders/${order.id}/cancel`); toast.success('Order cancelled'); onRefresh() }
-    catch (err) { toast.error(err.response?.data?.detail || 'Failed') }
-    finally { setConfirming(null) }
-  }
+function OrderCard({ order, onOpen, onFulfill, onCancel }) {
+  const meta = STATUS_META[order.status] || STATUS_META.pending
+  const itemCount = (order.items || []).reduce((s, i) => s + i.quantity, 0)
 
   return (
-    <>
-      <tr
-        className="hover:bg-amber-50/40 transition-colors duration-150 cursor-pointer"
-        onClick={() => setExpanded(x => !x)}
-      >
-        <td className="px-4 py-3 font-mono text-slate-500 text-xs">#{order.id}</td>
-        <td className="px-4 py-3">
-          <p className="font-medium text-slate-900">{order.worker_name}</p>
-          <p className="text-xs text-slate-400">{order.worker_employee_id}</p>
-        </td>
-        <td className="px-4 py-3 text-slate-500 text-sm">{formatDate(order.created_at)}</td>
-        <td className="px-4 py-3 font-semibold text-slate-800">{formatCurrency(order.total)}</td>
-        <td className="px-4 py-3">
-          <Badge status={order.status} map={ORDER_STATUS_CLASSES} label={ORDER_STATUS_LABELS[order.status]} />
-        </td>
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-2">
-            {order.status === 'pending' && !confirming && (
-              <>
-                <button
-                  onClick={e => { e.stopPropagation(); fulfill() }}
-                  className="flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer"
-                >
-                  <CheckCircle size={13} /> Fulfill
-                </button>
-                <button
-                  onClick={e => { e.stopPropagation(); setConfirming('cancel') }}
-                  className="flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer"
-                >
-                  <XCircle size={13} /> Cancel
-                </button>
-              </>
-            )}
-            {confirming === 'cancel' && (
-              <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                <span className="text-xs text-slate-600 font-medium">Cancel order?</span>
-                <button
-                  onClick={cancel}
-                  className="text-xs font-bold text-red-600 hover:text-red-800 px-2 py-1 rounded-lg bg-red-50 border border-red-200 transition-all duration-150 cursor-pointer"
-                >
-                  Yes
-                </button>
-                <button
-                  onClick={() => setConfirming(null)}
-                  className="text-xs font-medium text-slate-500 hover:text-slate-700 px-2 py-1 rounded-lg bg-slate-100 transition-all duration-150 cursor-pointer"
-                >
-                  No
-                </button>
-              </div>
-            )}
-            <span className="text-slate-300 ml-auto">
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </span>
+    <div onClick={onOpen} style={{
+      background: T.surface, borderRadius: 18, padding: 14,
+      border: `1px solid ${T.line}`, cursor: 'pointer',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: `linear-gradient(135deg, ${T.brand}, ${T.brandDeep})`,
+          color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0,
+        }}>{workerInitials(order.worker_name)}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: T.ink, fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{order.worker_name}</div>
+          <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
+            #{order.id} · {formatDateTime(order.created_at)} · {order.worker_employee_id}
           </div>
-        </td>
-      </tr>
-      {expanded && (
-        <tr className="bg-slate-50">
-          <td colSpan={6} className="px-4 py-3">
-            <div className="space-y-1.5">
-              {order.items?.map(item => (
-                <div key={item.id} className="flex items-center gap-3 text-sm">
-                  <span className="text-xs font-bold text-slate-400 bg-white border border-slate-200 rounded-md px-1.5 py-0.5">×{item.quantity}</span>
-                  <span className="flex-1 text-slate-700">{item.product_name || `Product #${item.product_id}`}</span>
-                  <span className="text-slate-500 font-medium">{formatCurrency(item.unit_price)} each</span>
-                  <span className="text-slate-700 font-semibold w-20 text-right">{formatCurrency(item.subtotal)}</span>
-                </div>
-              ))}
-              {(!order.items || order.items.length === 0) && (
-                <p className="text-xs text-slate-400">No item details</p>
-              )}
+        </div>
+        <div style={{
+          padding: '4px 10px', borderRadius: 999,
+          background: meta.bg, color: meta.color,
+          fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0,
+        }}>{meta.label}</div>
+      </div>
+
+      {(order.items || []).length > 0 && (
+        <div style={{
+          marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.line}`,
+          display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          {(order.items || []).slice(0, 3).map((it, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <span style={{
+                minWidth: 26, padding: '2px 6px', borderRadius: 6, background: T.surfaceAlt,
+                color: T.ink2, fontWeight: 700, fontSize: 11, textAlign: 'center',
+              }}>×{it.quantity}</span>
+              <span style={{ color: T.ink2, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.product_name}</span>
             </div>
-          </td>
-        </tr>
+          ))}
+          {(order.items || []).length > 3 && (
+            <div style={{ color: T.ink3, fontSize: 12, paddingLeft: 34 }}>+ {(order.items || []).length - 3} more</div>
+          )}
+        </div>
       )}
-    </>
+
+      <div style={{
+        paddingTop: 10, borderTop: `1px solid ${T.line}`, marginTop: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ color: T.ink3, fontSize: 12 }}>
+          {itemCount} {itemCount === 1 ? 'item' : 'items'} · <span style={{ color: T.ink, fontWeight: 700 }}>{formatCurrency(order.total)}</span>
+        </div>
+        {order.status === 'pending' && (
+          <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+            <div onClick={onCancel} style={{
+              padding: '7px 12px', borderRadius: 10, background: T.badSoft, color: T.bad,
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}>Cancel</div>
+            <div onClick={onFulfill} style={{
+              padding: '7px 12px', borderRadius: 10, background: T.brand, color: '#fff',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}>Mark fulfilled</div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
 export default function AdminOrders() {
+  const { openFulfill, refreshKey, refresh } = useOutletContext()
   const [orders, setOrders] = useState([])
+  const [tab, setTab] = useState('pending')
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [counts, setCounts] = useState({})
 
-  const load = () => {
-    setLoading(true)
-    const params = statusFilter ? `?status=${statusFilter}` : ''
-    api.get(`/admin/orders/${params}`)
-      .then(r => setOrders(r.data))
-      .catch(() => toast.error('Failed to load orders'))
-      .finally(() => setLoading(false))
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await api.get('/admin/orders/')
+        setOrders(res.data)
+      } catch { /* ignore */ }
+      finally { setLoading(false) }
+    }
+    load()
+  }, [refreshKey])
+
+  async function fulfillOrder(id) {
+    try {
+      const res = await api.put(`/admin/orders/${id}/fulfill`)
+      setOrders(prev => prev.map(o => o.id === id ? res.data : o))
+      toast.success('Order fulfilled')
+      refresh()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to fulfill')
+    }
   }
 
-  // Load all orders once to get counts for tabs
-  useEffect(() => {
-    api.get('/admin/orders/').then(r => {
-      const c = { '': r.data.length }
-      r.data.forEach(o => { c[o.status] = (c[o.status] || 0) + 1 })
-      setCounts(c)
-    }).catch(() => {})
-  }, [])
+  async function cancelOrder(id) {
+    try {
+      const res = await api.put(`/admin/orders/${id}/cancel`)
+      setOrders(prev => prev.map(o => o.id === id ? res.data : o))
+      toast.success('Order cancelled')
+      refresh()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to cancel')
+    }
+  }
 
-  useEffect(() => { load() }, [statusFilter])
+  const counts = {
+    pending:   orders.filter(o => o.status === 'pending').length,
+    fulfilled: orders.filter(o => o.status === 'fulfilled').length,
+    cancelled: orders.filter(o => o.status === 'cancelled').length,
+  }
+  const visible = orders.filter(o => o.status === tab)
+
+  const tabDefs = [
+    { id: 'pending',   label: 'Pending' },
+    { id: 'fulfilled', label: 'Done' },
+    { id: 'cancelled', label: 'Cancelled' },
+  ]
 
   return (
-    <div>
-      <PageHeader title="Orders" subtitle={`${orders.length} orders`} />
+    <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
+      {/* Header */}
+      <div style={{ padding: '8px 20px 14px' }}>
+        <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>Order fulfillment</div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 2 }}>
+          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Order queue</div>
+          {counts.pending > 0 && (
+            <div style={{
+              background: T.brand, color: '#fff',
+              padding: '6px 12px', borderRadius: 999,
+              fontSize: 13, fontWeight: 700,
+            }}>{counts.pending} to pack</div>
+          )}
+        </div>
+      </div>
 
-      {/* Status tabs */}
-      <div className="flex gap-1 mb-5 bg-slate-100 p-1 rounded-xl w-fit">
-        {TABS.map(tab => (
-          <button
-            key={tab.value}
-            onClick={() => setStatusFilter(tab.value)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer
-              ${statusFilter === tab.value
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-              }`}
-          >
-            {tab.label}
-            {tab.value === 'pending' && counts['pending'] > 0 && (
-              <span className="bg-amber-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
-                {counts['pending']}
-              </span>
-            )}
-          </button>
+      {/* Tabs */}
+      <div style={{ padding: '0 20px 14px' }}>
+        <div style={{ display: 'flex', gap: 4, padding: 4, background: T.surfaceAlt, borderRadius: 14 }}>
+          {tabDefs.map(t => {
+            const active = tab === t.id
+            return (
+              <div key={t.id} onClick={() => setTab(t.id)} style={{
+                flex: 1, padding: '9px 0', textAlign: 'center', borderRadius: 10,
+                background: active ? T.surface : 'transparent',
+                boxShadow: active ? '0 1px 3px rgba(12,35,64,0.08)' : 'none',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+                <span style={{ color: active ? T.ink : T.ink3, fontSize: 13, fontWeight: 700 }}>{t.label}</span>
+                {counts[t.id] > 0 && (
+                  <span style={{
+                    background: active ? T.brand : T.line,
+                    color: active ? '#fff' : T.ink2,
+                    fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                    minWidth: 18, textAlign: 'center',
+                  }}>{counts[t.id]}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {loading ? (
+          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>Loading…</div>
+        ) : visible.length === 0 ? (
+          <div style={{
+            background: T.surface, borderRadius: 18, padding: 30,
+            border: `1px dashed ${T.line}`, textAlign: 'center', color: T.ink3, fontSize: 14,
+          }}>All caught up — nothing in this queue.</div>
+        ) : visible.map(o => (
+          <OrderCard
+            key={o.id}
+            order={o}
+            onOpen={() => openFulfill(o)}
+            onFulfill={() => fulfillOrder(o.id)}
+            onCancel={() => cancelOrder(o.id)}
+          />
         ))}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              {['#', 'Worker', 'Date', 'Total', 'Status', 'Actions'].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-slate-500 font-semibold text-xs uppercase tracking-wide">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
-            ) : orders.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-12">
-                  <EmptyState icon={ShoppingBag} title="No orders" description={statusFilter ? `No ${statusFilter} orders` : 'No orders yet'} />
-                </td>
-              </tr>
-            ) : orders.map(o => (
-              <OrderRow key={o.id} order={o} onRefresh={load} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div style={{ height: 16 }} />
     </div>
   )
 }
