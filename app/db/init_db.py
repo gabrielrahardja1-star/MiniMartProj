@@ -12,14 +12,33 @@ def hash_pin(pin: str) -> str:
     return bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
 
 
+OLD_SKUS = [
+    "PALMIA-200G", "OXYKLIN-700G", "PINO-ICE-6", "SOFRESH-10ML",
+    "GENKI-MD-32", "PEPSODENT-225", "BEARBRAND-189", "FAVOUR-TISSUE-200",
+    "CHITATO-NORI-65",
+]
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
         _seed_admin(db)
+        _remove_old_products(db)
         _seed_products(db)
     finally:
         db.close()
+
+
+def _remove_old_products(db: Session):
+    from app.models.order import OrderItem
+    products = db.query(Product).filter(Product.sku.in_(OLD_SKUS)).all()
+    for p in products:
+        db.query(OrderItem).filter(OrderItem.product_id == p.id).delete()
+        db.delete(p)
+    if products:
+        db.commit()
+        print(f"Removed {len(products)} old dummy products.")
 
 
 def _seed_admin(db: Session):
