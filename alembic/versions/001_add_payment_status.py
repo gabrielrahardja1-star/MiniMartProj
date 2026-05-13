@@ -14,8 +14,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('orders', sa.Column('payment_status', sa.String(20), nullable=False, server_default='unpaid'))
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    # Fresh DB: create_all() will create the table with the column already — skip
+    if 'orders' not in inspector.get_table_names():
+        return
+    if 'payment_status' not in [c['name'] for c in inspector.get_columns('orders')]:
+        op.add_column('orders', sa.Column('payment_status', sa.String(20), nullable=False, server_default='unpaid'))
 
 
 def downgrade() -> None:
-    op.drop_column('orders', 'payment_status')
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'orders' in inspector.get_table_names():
+        if 'payment_status' in [c['name'] for c in inspector.get_columns('orders')]:
+            op.drop_column('orders', 'payment_status')
