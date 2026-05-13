@@ -33,6 +33,7 @@ class OrderOut(BaseModel):
     id: int
     worker_id: int
     status: str
+    payment_status: str
     total: float
     created_at: datetime
     items: list[OrderItemOut]

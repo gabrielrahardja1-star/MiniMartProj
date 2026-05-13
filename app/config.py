@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     ENV: str = "development"
     DEBUG: bool = True
 
+    # Midtrans
+    MIDTRANS_SERVER_KEY: str = ""
+    MIDTRANS_CLIENT_KEY: str = ""
+    MIDTRANS_IS_PRODUCTION: bool = False
+
     class Config:
         env_file = ".env"
 

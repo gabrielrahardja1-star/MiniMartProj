@@ -46,6 +46,7 @@ class OrderAdminOut(BaseModel):
     worker_employee_id: str
     worker_name: str
     status: str
+    payment_status: str
     total: float
     created_at: datetime
     items: list[OrderItemAdminOut] = []

@@ -88,6 +88,7 @@ def _build_order_out(order: Order) -> OrderAdminOut:
         worker_name=order.worker.name,
         status=order.status,
         total=float(order.total),
+        payment_status=order.payment_status,
         created_at=order.created_at,
         items=[
             OrderItemAdminOut(

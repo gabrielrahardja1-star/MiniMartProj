@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useCart } from '../../context/CartContext'
 import { T, FONT } from '../../utils/theme'
@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
+import QRCode from 'react-qr-code'
 
 // ─── Cart Sheet ───────────────────────────────────────────────────────────────
 
@@ -182,6 +183,39 @@ function PassOverlay({ order, onClose }) {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
   })
 
+  const [payStatus, setPayStatus] = useState(order.payment_status || 'unpaid')
+  const [qrString, setQrString] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const pollRef = useRef(null)
+
+  useEffect(() => {
+    if (payStatus === 'pending') {
+      pollRef.current = setInterval(async () => {
+        try {
+          const { data } = await api.get(`/payments/status/${order.id}`)
+          if (data.payment_status !== 'pending') {
+            setPayStatus(data.payment_status)
+            clearInterval(pollRef.current)
+          }
+        } catch {}
+      }, 3000)
+    }
+    return () => clearInterval(pollRef.current)
+  }, [payStatus, order.id])
+
+  async function handleGenerateQris() {
+    setGenerating(true)
+    try {
+      const { data } = await api.post(`/payments/qris/${order.id}`)
+      setQrString(data.qr_string)
+      setPayStatus('pending')
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to generate QR')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 60,
@@ -314,6 +348,93 @@ function PassOverlay({ order, onClose }) {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Payment section */}
+      {order.status !== 'cancelled' && (
+        <div style={{ padding: '0 20px 16px' }}>
+          {payStatus === 'paid' ? (
+            <div style={{
+              background: '#ECFDF5', borderRadius: 18, padding: 18,
+              display: 'flex', alignItems: 'center', gap: 12,
+              border: '1px solid #6EE7B7',
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 999,
+                background: T.good, display: 'grid', placeItems: 'center', flexShrink: 0,
+              }}>
+                <Ic name="check" size={22} color="#fff" stroke={2.5} />
+              </div>
+              <div>
+                <div style={{ color: T.good, fontSize: 15, fontWeight: 700 }}>Payment confirmed</div>
+                <div style={{ color: T.ink2, fontSize: 12, marginTop: 2 }}>QRIS payment received</div>
+              </div>
+            </div>
+          ) : payStatus === 'pending' && qrString ? (
+            <div style={{
+              background: T.surface, borderRadius: 18, padding: 18,
+              border: `1px solid ${T.line}`, textAlign: 'center',
+            }}>
+              <div style={{ color: T.ink, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Scan to pay</div>
+              <div style={{ color: T.ink3, fontSize: 12, marginBottom: 16 }}>
+                GoPay, OVO, DANA, or any QRIS app
+              </div>
+              <div style={{
+                display: 'inline-block', background: '#fff',
+                padding: 16, borderRadius: 16, border: `1px solid ${T.line}`,
+              }}>
+                <QRCode value={qrString} size={200} />
+              </div>
+              <div style={{ marginTop: 14, color: T.ink, fontSize: 18, fontWeight: 700 }}>
+                {formatCurrency(orderTotal)}
+              </div>
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: 999,
+                  background: '#F59E0B',
+                }} />
+                <span style={{ color: T.ink2, fontSize: 12 }}>Waiting for payment…</span>
+              </div>
+            </div>
+          ) : (payStatus === 'failed' || payStatus === 'expired') ? (
+            <div style={{
+              background: T.surface, borderRadius: 18, padding: 18,
+              border: `1px solid ${T.line}`, textAlign: 'center',
+            }}>
+              <div style={{ color: T.bad, fontSize: 14, fontWeight: 600, marginBottom: 14 }}>
+                {payStatus === 'expired' ? 'QR code expired — try again' : 'Payment failed — try again'}
+              </div>
+              <button
+                onClick={handleGenerateQris}
+                disabled={generating}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: 14,
+                  background: generating ? T.ink2 : T.ink,
+                  color: '#fff', fontSize: 14, fontWeight: 700,
+                  border: 'none', cursor: generating ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT,
+                }}
+              >
+                {generating ? 'Generating…' : 'Try again'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerateQris}
+              disabled={generating}
+              style={{
+                width: '100%', padding: '16px', borderRadius: 16,
+                background: generating ? T.ink2 : T.brand,
+                color: '#fff', fontSize: 16, fontWeight: 700,
+                border: 'none', cursor: generating ? 'not-allowed' : 'pointer',
+                fontFamily: FONT,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              }}
+            >
+              {generating ? 'Generating QR…' : 'Pay with QRIS'}
+            </button>
+          )}
         </div>
       )}
 
