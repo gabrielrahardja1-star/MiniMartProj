@@ -44,7 +44,6 @@ def generate_qris(
             "order_id": midtrans_order_id,
             "gross_amount": int(order.total),
         },
-        "enabled_payments": ["qris"],
     }
 
     try:
