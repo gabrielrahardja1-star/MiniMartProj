@@ -1,7 +1,7 @@
 import hashlib
 import time
-import requests as http
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import midtransclient
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.order import Order
@@ -11,22 +11,13 @@ from app.models.worker import Worker
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
-MIDTRANS_SANDBOX_URL = "https://api.sandbox.midtrans.com/v2"
-MIDTRANS_PROD_URL    = "https://api.midtrans.com/v2"
 
-
-def _midtrans_base_url() -> str:
-    return MIDTRANS_PROD_URL if settings.MIDTRANS_IS_PRODUCTION else MIDTRANS_SANDBOX_URL
-
-
-def _midtrans_headers() -> dict:
-    import base64
-    encoded = base64.b64encode(f"{settings.MIDTRANS_SERVER_KEY}:".encode()).decode()
-    return {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": f"Basic {encoded}",
-    }
+def _core_api():
+    return midtransclient.CoreApi(
+        is_production=settings.MIDTRANS_IS_PRODUCTION,
+        server_key=settings.MIDTRANS_SERVER_KEY,
+        client_key=settings.MIDTRANS_CLIENT_KEY,
+    )
 
 
 # ── Generate QRIS for an order ────────────────────────────────────────────────
@@ -46,7 +37,6 @@ def generate_qris(
     if not settings.MIDTRANS_SERVER_KEY:
         raise HTTPException(status_code=503, detail="Payment gateway not configured")
 
-    # Use a unique order_id per attempt so Midtrans won't reject duplicates
     midtrans_order_id = f"MM-{order.id}-{int(time.time())}"
 
     payload = {
@@ -61,27 +51,20 @@ def generate_qris(
     }
 
     try:
-        resp = http.post(
-            f"{_midtrans_base_url()}/charge",
-            json=payload,
-            headers=_midtrans_headers(),
-            timeout=15,
-        )
-        data = resp.json()
-        print(f"MIDTRANS_RESPONSE {resp.status_code}: {data}", flush=True)
+        data = _core_api().charge(payload)
+        print(f"MIDTRANS_RESPONSE: {data}", flush=True)
     except Exception as e:
+        print(f"MIDTRANS_EXCEPTION: {e}", flush=True)
         raise HTTPException(status_code=502, detail=f"Payment gateway error: {str(e)}")
 
-    if resp.status_code not in (200, 201):
-        print(f"MIDTRANS_ERROR {resp.status_code}: {data}", flush=True)
+    status_code = str(data.get("status_code", ""))
+    if status_code not in ("200", "201"):
         raise HTTPException(
             status_code=502,
             detail=data.get("status_message", "Failed to create QRIS"),
         )
 
-    # Get QR string from response
     qr_string = data.get("qr_string") or ""
-    # Midtrans also provides a direct QR image URL via actions
     qr_image_url = next(
         (a["url"] for a in data.get("actions", []) if a.get("name") == "generate-qr-code"),
         None,
