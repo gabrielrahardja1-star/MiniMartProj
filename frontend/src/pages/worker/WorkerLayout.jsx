@@ -207,10 +207,13 @@ function PassOverlay({ order, onClose }) {
     setGenerating(true)
     try {
       const { data } = await api.post(`/payments/qris/${order.id}`)
-      setQrString(data.qr_string)
-      setPayStatus('pending')
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url
+      } else {
+        toast.error('No payment URL returned')
+      }
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to generate QR')
+      toast.error(err.response?.data?.detail || 'Failed to generate payment')
     } finally {
       setGenerating(false)
     }
@@ -369,32 +372,6 @@ function PassOverlay({ order, onClose }) {
               <div>
                 <div style={{ color: T.good, fontSize: 15, fontWeight: 700 }}>Payment confirmed</div>
                 <div style={{ color: T.ink2, fontSize: 12, marginTop: 2 }}>QRIS payment received</div>
-              </div>
-            </div>
-          ) : payStatus === 'pending' && qrString ? (
-            <div style={{
-              background: T.surface, borderRadius: 18, padding: 18,
-              border: `1px solid ${T.line}`, textAlign: 'center',
-            }}>
-              <div style={{ color: T.ink, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Scan to pay</div>
-              <div style={{ color: T.ink3, fontSize: 12, marginBottom: 16 }}>
-                GoPay, OVO, DANA, or any QRIS app
-              </div>
-              <div style={{
-                display: 'inline-block', background: '#fff',
-                padding: 16, borderRadius: 16, border: `1px solid ${T.line}`,
-              }}>
-                <QRCode value={qrString} size={200} />
-              </div>
-              <div style={{ marginTop: 14, color: T.ink, fontSize: 18, fontWeight: 700 }}>
-                {formatCurrency(orderTotal)}
-              </div>
-              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <div style={{
-                  width: 8, height: 8, borderRadius: 999,
-                  background: '#F59E0B',
-                }} />
-                <span style={{ color: T.ink2, fontSize: 12 }}>Waiting for payment…</span>
               </div>
             </div>
           ) : (payStatus === 'failed' || payStatus === 'expired') ? (
