@@ -68,6 +68,7 @@ def generate_qris(
             timeout=15,
         )
         data = resp.json()
+        print(f"MIDTRANS_RESPONSE {resp.status_code}: {data}", flush=True)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Payment gateway error: {str(e)}")
 
