@@ -72,8 +72,7 @@ def generate_qris(
         raise HTTPException(status_code=502, detail=f"Payment gateway error: {str(e)}")
 
     if resp.status_code not in (200, 201):
-        import logging
-        logging.error(f"Midtrans error {resp.status_code}: {data}")
+        print(f"MIDTRANS_ERROR {resp.status_code}: {data}", flush=True)
         raise HTTPException(
             status_code=502,
             detail=data.get("status_message", "Failed to create QRIS"),
