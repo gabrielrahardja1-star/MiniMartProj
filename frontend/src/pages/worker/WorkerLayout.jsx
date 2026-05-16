@@ -175,8 +175,13 @@ function PassOverlay({ order, onClose }) {
     { label: 'Picked up',         detail: 'Enjoy!' },
   ]
 
-  // pending → step 0, fulfilled → step 3, cancelled → -1
-  const stepIdx = order.status === 'fulfilled' ? 3 : order.status === 'cancelled' ? -1 : 0
+  // Map status+payment to step index
+  // 0 = placed (awaiting payment), 1 = being packed, 2 = ready for pickup, 3 = picked up
+  const stepIdx = order.status === 'fulfilled' ? 3
+    : order.status === 'ready' ? 2
+    : order.status === 'cancelled' ? -1
+    : order.payment_status === 'paid' ? 1
+    : 0
   const orderTotal = order.items.reduce((s, i) => s + i.subtotal, 0)
 
   const placedAt = new Date(order.created_at).toLocaleString('en-AU', {
@@ -355,9 +360,26 @@ function PassOverlay({ order, onClose }) {
       )}
 
       {/* Payment section */}
-      {order.status !== 'cancelled' && (
+      {order.status !== 'cancelled' && order.status !== 'fulfilled' && (
         <div style={{ padding: '0 20px 16px' }}>
-          {payStatus === 'paid' ? (
+          {order.status === 'ready' ? (
+            <div style={{
+              background: '#EFF6FF', borderRadius: 18, padding: 18,
+              display: 'flex', alignItems: 'center', gap: 12,
+              border: '1px solid #BFDBFE',
+            }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 999,
+                background: '#1D4ED8', display: 'grid', placeItems: 'center', flexShrink: 0,
+              }}>
+                <Ic name="check" size={22} color="#fff" stroke={2.5} />
+              </div>
+              <div>
+                <div style={{ color: '#1D4ED8', fontSize: 15, fontWeight: 700 }}>Ready for pickup!</div>
+                <div style={{ color: T.ink2, fontSize: 12, marginTop: 2 }}>Head to the MiniMart counter</div>
+              </div>
+            </div>
+          ) : payStatus === 'paid' ? (
             <div style={{
               background: '#ECFDF5', borderRadius: 18, padding: 18,
               display: 'flex', alignItems: 'center', gap: 12,

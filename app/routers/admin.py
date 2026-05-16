@@ -127,8 +127,8 @@ def admin_list_orders(
     return [_build_order_out(o) for o in orders]
 
 
-@router.put("/orders/{order_id}/fulfill", response_model=OrderAdminOut)
-def fulfill_order(
+@router.put("/orders/{order_id}/ready", response_model=OrderAdminOut)
+def mark_order_ready(
     order_id: int,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
@@ -141,6 +141,28 @@ def fulfill_order(
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "pending":
         raise HTTPException(status_code=400, detail=f"Order is already '{order.status}'")
+    if order.payment_status != "paid":
+        raise HTTPException(status_code=400, detail="Order has not been paid yet")
+    order.status = "ready"
+    order.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return _build_order_out(order)
+
+
+@router.put("/orders/{order_id}/fulfill", response_model=OrderAdminOut)
+def fulfill_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    order = db.query(Order).options(
+        joinedload(Order.worker),
+        joinedload(Order.items).joinedload(OrderItem.product),
+    ).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "ready":
+        raise HTTPException(status_code=400, detail=f"Order must be 'ready' before fulfilling (current: '{order.status}')")
     order.status = "fulfilled"
     order.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -159,7 +181,7 @@ def cancel_order(
     ).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.status not in ("pending",):
+    if order.status not in ("pending", "ready"):
         raise HTTPException(status_code=400, detail=f"Cannot cancel an order with status '{order.status}'")
     # Restore stock
     for item in order.items:

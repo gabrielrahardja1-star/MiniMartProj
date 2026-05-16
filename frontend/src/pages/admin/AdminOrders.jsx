@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 
 const STATUS_META = {
   pending:   { label: 'Pending',   color: '#A06B0E', bg: '#FDEFD1' },
+  ready:     { label: 'Ready',     color: '#1D4ED8', bg: '#DBEAFE' },
   fulfilled: { label: 'Fulfilled', color: '#0E7A4D', bg: '#D6F3E6' },
   cancelled: { label: 'Cancelled', color: '#991B1B', bg: '#FCE0E0' },
 }
@@ -15,9 +16,10 @@ function workerInitials(name = '') {
   return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
 
-function OrderCard({ order, onOpen, onFulfill, onCancel }) {
+function OrderCard({ order, onOpen, onMarkReady, onFulfill, onCancel }) {
   const meta = STATUS_META[order.status] || STATUS_META.pending
   const itemCount = (order.items || []).reduce((s, i) => s + i.quantity, 0)
+  const isPaid = order.payment_status === 'paid'
 
   return (
     <div onClick={onOpen} style={{
@@ -36,11 +38,21 @@ function OrderCard({ order, onOpen, onFulfill, onCancel }) {
             #{order.id} · {formatDateTime(order.created_at)} · {order.worker_employee_id}
           </div>
         </div>
-        <div style={{
-          padding: '4px 10px', borderRadius: 999,
-          background: meta.bg, color: meta.color,
-          fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0,
-        }}>{meta.label}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div style={{
+            padding: '4px 10px', borderRadius: 999,
+            background: meta.bg, color: meta.color,
+            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+          }}>{meta.label}</div>
+          {order.status === 'pending' && (
+            <div style={{
+              padding: '2px 8px', borderRadius: 999,
+              background: isPaid ? '#D6F3E6' : '#FDEFD1',
+              color: isPaid ? '#0E7A4D' : '#A06B0E',
+              fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3,
+            }}>{isPaid ? 'Paid' : 'Awaiting payment'}</div>
+          )}
+        </div>
       </div>
 
       {(order.items || []).length > 0 && (
@@ -70,18 +82,32 @@ function OrderCard({ order, onOpen, onFulfill, onCancel }) {
         <div style={{ color: T.ink3, fontSize: 12 }}>
           {itemCount} {itemCount === 1 ? 'item' : 'items'} · <span style={{ color: T.ink, fontWeight: 700 }}>{formatCurrency(order.total)}</span>
         </div>
-        {order.status === 'pending' && (
-          <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-            <div onClick={onCancel} style={{
-              padding: '7px 12px', borderRadius: 10, background: T.badSoft, color: T.bad,
-              fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>Cancel</div>
-            <div onClick={onFulfill} style={{
-              padding: '7px 12px', borderRadius: 10, background: T.brand, color: '#fff',
-              fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>Mark fulfilled</div>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+          {order.status === 'pending' && isPaid && (
+            <>
+              <div onClick={onCancel} style={{
+                padding: '7px 12px', borderRadius: 10, background: T.badSoft, color: T.bad,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Cancel</div>
+              <div onClick={onMarkReady} style={{
+                padding: '7px 12px', borderRadius: 10, background: T.brand, color: '#fff',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Mark ready</div>
+            </>
+          )}
+          {order.status === 'ready' && (
+            <>
+              <div onClick={onCancel} style={{
+                padding: '7px 12px', borderRadius: 10, background: T.badSoft, color: T.bad,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Cancel</div>
+              <div onClick={onFulfill} style={{
+                padding: '7px 12px', borderRadius: 10, background: '#16A34A', color: '#fff',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Mark fulfilled</div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -104,6 +130,17 @@ export default function AdminOrders() {
     }
     load()
   }, [refreshKey])
+
+  async function markReady(id) {
+    try {
+      const res = await api.put(`/admin/orders/${id}/ready`)
+      setOrders(prev => prev.map(o => o.id === id ? res.data : o))
+      toast.success('Order marked as ready for pickup')
+      refresh()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to mark ready')
+    }
+  }
 
   async function fulfillOrder(id) {
     try {
@@ -129,6 +166,7 @@ export default function AdminOrders() {
 
   const counts = {
     pending:   orders.filter(o => o.status === 'pending').length,
+    ready:     orders.filter(o => o.status === 'ready').length,
     fulfilled: orders.filter(o => o.status === 'fulfilled').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
   }
@@ -136,6 +174,7 @@ export default function AdminOrders() {
 
   const tabDefs = [
     { id: 'pending',   label: 'Pending' },
+    { id: 'ready',     label: 'Ready' },
     { id: 'fulfilled', label: 'Done' },
     { id: 'cancelled', label: 'Cancelled' },
   ]
@@ -198,6 +237,7 @@ export default function AdminOrders() {
             key={o.id}
             order={o}
             onOpen={() => openFulfill(o)}
+            onMarkReady={() => markReady(o.id)}
             onFulfill={() => fulfillOrder(o.id)}
             onCancel={() => cancelOrder(o.id)}
           />
