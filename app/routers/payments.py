@@ -45,6 +45,9 @@ def generate_qris(
             "gross_amount": int(order.total),
         },
         "enabled_payments": ["other_qris"],
+        "callbacks": {
+            "finish": f"{settings.FRONTEND_URL}/orders",
+        },
     }
 
     try:

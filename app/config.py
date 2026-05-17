@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     MIDTRANS_CLIENT_KEY: str = ""
     MIDTRANS_IS_PRODUCTION: bool = False
 
+    FRONTEND_URL: str = "http://localhost:8080"
+
     class Config:
         env_file = ".env"
 
