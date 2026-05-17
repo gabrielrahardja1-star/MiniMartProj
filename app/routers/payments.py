@@ -12,6 +12,14 @@ from app.models.worker import Worker
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
+@router.get("/config")
+def payment_config():
+    return {
+        "client_key": settings.MIDTRANS_CLIENT_KEY,
+        "is_production": settings.MIDTRANS_IS_PRODUCTION,
+    }
+
+
 def _snap():
     return midtransclient.Snap(
         is_production=settings.MIDTRANS_IS_PRODUCTION,

@@ -212,14 +212,33 @@ function PassOverlay({ order, onClose }) {
     setGenerating(true)
     try {
       const { data } = await api.post(`/payments/qris/${order.id}`)
-      if (data.redirect_url) {
-        window.location.href = data.redirect_url
-      } else {
-        toast.error('No payment URL returned')
+
+      // Load Snap.js dynamically if not already loaded
+      if (!window.snap) {
+        const configRes = await api.get('/payments/config')
+        const { client_key, is_production } = configRes.data
+        const snapUrl = is_production
+          ? 'https://app.midtrans.com/snap/snap.js'
+          : 'https://app.sandbox.midtrans.com/snap/snap.js'
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = snapUrl
+          script.setAttribute('data-client-key', client_key)
+          script.onload = resolve
+          script.onerror = reject
+          document.head.appendChild(script)
+        })
       }
+
+      setGenerating(false)
+      window.snap.pay(data.snap_token, {
+        onSuccess: () => setPayStatus('paid'),
+        onPending: () => setPayStatus('pending'),
+        onError:   () => toast.error('Payment failed'),
+        onClose:   () => {},
+      })
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to generate payment')
-    } finally {
       setGenerating(false)
     }
   }
