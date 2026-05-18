@@ -521,6 +521,12 @@ export default function AdminLayout() {
     loadCount()
   }, [refreshKey])
 
+  // Poll every 15 seconds so new orders appear automatically
+  useEffect(() => {
+    const id = setInterval(() => refresh(), 15_000)
+    return () => clearInterval(id)
+  }, [refresh])
+
   async function advanceOrder(orderId, onClose) {
     try {
       await api.put(`/admin/orders/${orderId}/fulfill`)
