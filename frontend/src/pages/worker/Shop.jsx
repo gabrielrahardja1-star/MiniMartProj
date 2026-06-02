@@ -35,9 +35,21 @@ function guessCategory(name) {
   return 'other'
 }
 
-function ProductThumb({ cat, size = 96 }) {
+function ProductThumb({ cat, imageUrl, size = 96 }) {
   const [bg, fg] = CAT_COLORS[cat] || CAT_COLORS.other
   const iconMap = { drinks: 'cup', snacks: 'snack', meals: 'meal', care: 'care', gear: 'helmet', other: 'box' }
+  if (imageUrl) {
+    return (
+      <div style={{ width: '100%', height: size, borderRadius: 12, overflow: 'hidden', background: bg }}>
+        <img
+          src={imageUrl}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.display = 'grid'; e.target.parentNode.style.placeItems = 'center' }}
+        />
+      </div>
+    )
+  }
   return (
     <div style={{
       width: '100%', height: size, borderRadius: 12,
@@ -189,7 +201,7 @@ export default function Shop() {
               }}>
                 {/* Thumbnail */}
                 <div style={{ position: 'relative', padding: '12px 12px 6px' }}>
-                  <ProductThumb cat={p.cat} size={96} />
+                  <ProductThumb cat={p.cat} imageUrl={p.image_url} size={96} />
                   {lowStock && !outOfStock && (
                     <div style={{
                       position: 'absolute', top: 18, right: 18,
