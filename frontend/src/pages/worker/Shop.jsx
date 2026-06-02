@@ -44,7 +44,7 @@ function ProductThumb({ cat, imageUrl, size = 96 }) {
         <img
           src={imageUrl}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }}
           onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.display = 'grid'; e.target.parentNode.style.placeItems = 'center' }}
         />
       </div>
