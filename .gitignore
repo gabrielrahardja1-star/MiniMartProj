@@ -12,6 +12,7 @@ venv/
 env/
 minimart.db
 uploads/
+!uploads/products/
 .DS_Store
 *.xlsx
 inventaris_toko.csv
