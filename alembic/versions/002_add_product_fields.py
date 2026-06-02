@@ -14,12 +14,23 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('products', sa.Column('name_zh', sa.String(200), nullable=True))
-    op.add_column('products', sa.Column('category', sa.String(100), nullable=True))
-    op.add_column('products', sa.Column('sub_category', sa.String(100), nullable=True))
-    op.add_column('products', sa.Column('brand', sa.String(100), nullable=True))
-    op.add_column('products', sa.Column('size', sa.String(50), nullable=True))
-    op.add_column('products', sa.Column('image_url', sa.String(500), nullable=True))
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    # Fresh DB: create_all() will create the table with these columns already — skip
+    if 'products' not in inspector.get_table_names():
+        return
+    existing = [c['name'] for c in inspector.get_columns('products')]
+    new_columns = [
+        ('name_zh',      sa.Column('name_zh',      sa.String(200), nullable=True)),
+        ('category',     sa.Column('category',     sa.String(100), nullable=True)),
+        ('sub_category', sa.Column('sub_category', sa.String(100), nullable=True)),
+        ('brand',        sa.Column('brand',        sa.String(100), nullable=True)),
+        ('size',         sa.Column('size',         sa.String(50),  nullable=True)),
+        ('image_url',    sa.Column('image_url',    sa.String(500), nullable=True)),
+    ]
+    for col_name, col_def in new_columns:
+        if col_name not in existing:
+            op.add_column('products', col_def)
 
 
 def downgrade():
