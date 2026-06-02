@@ -40,12 +40,21 @@ function ProductThumb({ cat, imageUrl, size = 96 }) {
   const iconMap = { drinks: 'cup', snacks: 'snack', meals: 'meal', care: 'care', gear: 'helmet', other: 'box' }
   if (imageUrl) {
     return (
-      <div style={{ width: '100%', height: size, borderRadius: 12, overflow: 'hidden', background: bg }}>
+      <div style={{
+        width: '100%', height: size, borderRadius: 12, overflow: 'hidden',
+        background: '#fff', border: '1px solid #eef0f4',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
         <img
           src={imageUrl}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }}
-          onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.display = 'grid'; e.target.parentNode.style.placeItems = 'center' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '10px' }}
+          onError={e => {
+            e.target.style.display = 'none'
+            const p = e.target.parentNode
+            p.style.background = bg
+            p.innerHTML = ''
+          }}
         />
       </div>
     )
@@ -201,7 +210,7 @@ export default function Shop() {
               }}>
                 {/* Thumbnail */}
                 <div style={{ position: 'relative', padding: '12px 12px 6px' }}>
-                  <ProductThumb cat={p.cat} imageUrl={p.image_url} size={96} />
+                  <ProductThumb cat={p.cat} imageUrl={p.image_url} size={140} />
                   {lowStock && !outOfStock && (
                     <div style={{
                       position: 'absolute', top: 18, right: 18,
