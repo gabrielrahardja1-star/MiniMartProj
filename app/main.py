@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.config import settings
 import app.models  # noqa: ensure all models are registered with SQLAlchemy
 from app.routers import auth, invoices, products, orders, admin, payments
@@ -27,6 +28,8 @@ app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(admin.router)
 app.include_router(payments.router)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/")
