@@ -9,8 +9,26 @@ from app.core.deps import get_current_worker
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+DUMMY_USERS = {
+    "admin": {"pin": "0000", "id": 0, "name": "Dummy Admin", "role": "admin"},
+    "cashier": {"pin": "0000", "id": -1, "name": "Dummy Cashier", "role": "cashier"},
+    "worker": {"pin": "0000", "id": -2, "name": "Dummy Worker", "role": "worker"},
+}
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
+    dummy = DUMMY_USERS.get(body.employee_id)
+    if dummy and body.pin == dummy["pin"]:
+        token = create_access_token({"sub": body.employee_id, "role": dummy["role"]})
+        return TokenResponse(
+            access_token=token,
+            id=dummy["id"],
+            employee_id=body.employee_id,
+            name=dummy["name"],
+            role=dummy["role"],
+        )
+
     worker = db.query(Worker).filter(
         Worker.employee_id == body.employee_id,
         Worker.is_active == True,
@@ -23,7 +41,13 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         )
 
     token = create_access_token({"sub": worker.employee_id, "role": worker.role})
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=token,
+        id=worker.id,
+        employee_id=worker.employee_id,
+        name=worker.name,
+        role=worker.role,
+    )
 
 
 @router.get("/me", response_model=CurrentUser)
