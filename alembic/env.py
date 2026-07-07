@@ -2,7 +2,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.db.base import Base
-from app.models import worker, product, order, invoice  # noqa: ensure models are registered
+from app.models import worker, product, order, invoice, wallet  # noqa: ensure models are registered
 
 config = context.config
 if config.config_file_name is not None:

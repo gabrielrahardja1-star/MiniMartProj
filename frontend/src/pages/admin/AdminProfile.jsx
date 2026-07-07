@@ -14,6 +14,7 @@ export default function AdminProfile() {
     { ic: 'trend',   label: 'Reports & exports',  action: () => navigate('/admin/reports') },
     { ic: 'doc',     label: 'Invoices',            action: () => navigate('/admin/invoices') },
     { ic: 'profile', label: 'Manage workers',      action: () => navigate('/admin/workers') },
+    { ic: 'wallet',  label: 'Wallet ledger',       action: () => navigate('/admin/wallet-ledger') },
     { ic: 'pkg',     label: 'Suppliers',           action: null },
   ]
 

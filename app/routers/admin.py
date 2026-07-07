@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.db.session import get_db
 from app.models.order import Order, OrderItem
 from app.models.product import Product
+from app.models.wallet import WalletTransaction
 from app.models.worker import Worker
 from app.schemas.admin import (
     ProductAdminOut,
@@ -19,6 +20,7 @@ from app.schemas.admin import (
     WorkerUpdateRequest,
     WorkerSpending,
 )
+from app.schemas.wallet import WalletTopUpRequest, WalletTransactionOut
 from app.core.security import hash_pin
 from app.core.deps import require_admin
 
@@ -173,7 +175,7 @@ def fulfill_order(
 def cancel_order(
     order_id: int,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    admin: Worker = Depends(require_admin),
 ):
     order = db.query(Order).options(
         joinedload(Order.worker),
@@ -188,6 +190,35 @@ def cancel_order(
         product = db.get(Product, item.product_id)
         if product:
             product.stock += item.quantity
+
+    wallet_payment = (
+        db.query(WalletTransaction)
+        .filter(
+            WalletTransaction.order_id == order.id,
+            WalletTransaction.type == "payment",
+        )
+        .first()
+    )
+    if wallet_payment:
+        worker = (
+            db.query(Worker)
+            .filter(Worker.id == order.worker_id)
+            .with_for_update()
+            .first()
+        )
+        if worker:
+            refund_amount = float(wallet_payment.amount)
+            worker.balance = round(float(worker.balance) + refund_amount, 2)
+            db.add(WalletTransaction(
+                worker_id=worker.id,
+                type="refund",
+                amount=refund_amount,
+                balance_after=worker.balance,
+                order_id=order.id,
+                performed_by_worker_id=admin.id,
+                note="Order cancelled",
+            ))
+
     order.status = "cancelled"
     order.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -244,6 +275,56 @@ def admin_update_worker(
     db.commit()
     db.refresh(worker)
     return worker
+
+
+@router.post("/workers/{worker_id}/topup", response_model=WorkerOut)
+def admin_top_up_worker(
+    worker_id: int,
+    body: WalletTopUpRequest,
+    db: Session = Depends(get_db),
+    admin: Worker = Depends(require_admin),
+):
+    worker = (
+        db.query(Worker)
+        .filter(Worker.id == worker_id)
+        .with_for_update()
+        .first()
+    )
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    if not worker.is_active:
+        raise HTTPException(status_code=400, detail="Cannot top up an inactive worker")
+
+    amount = round(float(body.amount), 2)
+    worker.balance = round(float(worker.balance) + amount, 2)
+    db.add(WalletTransaction(
+        worker_id=worker.id,
+        type="topup",
+        amount=amount,
+        balance_after=worker.balance,
+        performed_by_worker_id=admin.id,
+        note=body.note,
+    ))
+    db.commit()
+    db.refresh(worker)
+    return worker
+
+
+@router.get("/workers/{worker_id}/transactions", response_model=list[WalletTransactionOut])
+def admin_worker_transactions(
+    worker_id: int,
+    db: Session = Depends(get_db),
+    _admin: Worker = Depends(require_admin),
+):
+    worker = db.get(Worker, worker_id)
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    return (
+        db.query(WalletTransaction)
+        .filter(WalletTransaction.worker_id == worker.id)
+        .order_by(WalletTransaction.created_at.desc(), WalletTransaction.id.desc())
+        .all()
+    )
 
 
 # ── Reports ───────────────────────────────────────────────────────────────────

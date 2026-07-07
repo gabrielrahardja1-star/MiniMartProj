@@ -11,7 +11,7 @@ function BarChart({ data, maxValue }) {
   if (!data.length) return null
   return (
     <div className="space-y-2 py-2">
-      {data.map((r, i) => {
+      {data.map((r) => {
         const pct = maxValue > 0 ? (r.total_deduction / maxValue) * 100 : 0
         return (
           <div key={r.employee_id} className="flex items-center gap-3 text-sm">
@@ -102,15 +102,17 @@ export default function Reports() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        {summaryCards.map(({ icon: Icon, label, value, accent }) => (
+        {summaryCards.map(({ icon, label, value, accent }) => {
+          const SummaryIcon = icon
+          return (
           <div key={label} className={`bg-white rounded-xl shadow-sm p-4 border-l-4 ${accent}`}>
             <div className="flex items-center gap-2 mb-1">
-              <Icon size={14} className="text-slate-400" />
+              <SummaryIcon size={14} className="text-slate-400" />
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
             </div>
             <p className="text-2xl font-bold text-slate-900">{value}</p>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Bar chart */}

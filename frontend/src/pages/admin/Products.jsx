@@ -8,7 +8,7 @@ import api from '../../api'
 import toast from 'react-hot-toast'
 
 export default function AdminInventory() {
-  const { openEdit, refreshKey, refresh } = useOutletContext()
+  const { openEdit, refreshKey } = useOutletContext()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')

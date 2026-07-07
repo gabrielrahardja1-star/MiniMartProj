@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { T, FONT } from '../../utils/theme'
+import { formatCurrency } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
@@ -35,7 +36,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
         : { employee_id: '', name: '', pin: '', pin_confirm: '' }
       )
     }
-  }, [open, worker?.id])
+  }, [open, worker])
 
   async function save() {
     if (!form.name.trim()) return toast.error('Name is required')
@@ -177,6 +178,122 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
   )
 }
 
+// ── Wallet top-up sheet ──────────────────────────────────────────────────────
+function TopUpSheet({ worker, open, onClose, onSaved }) {
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setAmount('')
+      setNote('')
+    }
+  }, [open, worker?.id])
+
+  async function save() {
+    const parsed = Number(amount)
+    if (!parsed || parsed <= 0) return toast.error('Enter a top-up amount')
+    setSaving(true)
+    try {
+      await api.post(`/admin/workers/${worker.id}/topup`, { amount: parsed, note })
+      toast.success('Balance topped up')
+      onSaved()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Top-up failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(12,35,64,0.45)',
+        opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none',
+        transition: 'opacity 220ms ease', zIndex: 50,
+      }} />
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0,
+        background: T.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        transform: open ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)',
+        zIndex: 60, maxHeight: '92%', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 -10px 40px rgba(12,35,64,0.18)', fontFamily: FONT,
+      }}>
+        <div style={{ display: 'grid', placeItems: 'center', padding: '10px 0 4px' }}>
+          <div style={{ width: 40, height: 4, borderRadius: 3, background: T.line }} />
+        </div>
+
+        <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Top up wallet</div>
+            <div style={{ color: T.ink3, fontSize: 13, marginTop: 2 }}>{worker?.name}</div>
+          </div>
+          <div onClick={onClose} style={{
+            width: 36, height: 36, borderRadius: 12, background: T.surface,
+            border: `1px solid ${T.line}`, display: 'grid', placeItems: 'center', cursor: 'pointer',
+          }}>
+            <Ic name="close" size={18} color={T.ink2} />
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{
+            background: T.surface, borderRadius: 16, padding: 14,
+            border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ color: T.ink3, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              Current balance
+            </div>
+            <div style={{ color: T.ink, fontSize: 18, fontWeight: 700 }}>{formatCurrency(worker?.balance || 0)}</div>
+          </div>
+
+          <Field label="Cash received">
+            <input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              placeholder="e.g. 50000"
+              style={inputSt}
+            />
+          </Field>
+
+          <Field label="Note">
+            <input
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Optional"
+              maxLength={255}
+              style={inputSt}
+            />
+          </Field>
+        </div>
+
+        <div style={{
+          background: T.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          padding: '16px 20px 34px', boxShadow: '0 -4px 20px rgba(12,35,64,0.05)',
+          display: 'flex', gap: 10,
+        }}>
+          <div onClick={onClose} style={{
+            flex: 1, padding: 16, borderRadius: 16,
+            background: T.surfaceAlt, color: T.ink2,
+            fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
+          }}>Cancel</div>
+          <div onClick={save} style={{
+            flex: 2, padding: 16, borderRadius: 16,
+            background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
+            fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
+          }}>{saving ? 'Saving…' : 'Add balance'}</div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminWorkers() {
   const navigate = useNavigate()
@@ -184,6 +301,7 @@ export default function AdminWorkers() {
   const [loading, setLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editWorker, setEditWorker] = useState(null)
+  const [topUpWorker, setTopUpWorker] = useState(null)
 
   async function load() {
     setLoading(true)
@@ -270,7 +388,9 @@ export default function AdminWorkers() {
                 }}>{initials}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>{w.name}</div>
-                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{w.employee_id}</div>
+                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
+                    {w.employee_id} · {formatCurrency(w.balance || 0)}
+                  </div>
                 </div>
                 <div style={{
                   padding: '4px 10px', borderRadius: 999,
@@ -292,6 +412,14 @@ export default function AdminWorkers() {
                 }}>
                   <Ic name="edit" size={13} color={T.brand} /> Edit
                 </div>
+                <div onClick={() => setTopUpWorker(w)} style={{
+                  flex: 1, padding: '9px 0', borderRadius: 10,
+                  background: T.warnSoft, color: T.warn,
+                  fontSize: 13, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                }}>
+                  <Ic name="wallet" size={13} color={T.warn} /> Top up
+                </div>
                 <div onClick={() => toggleActive(w)} style={{
                   flex: 1, padding: '9px 0', borderRadius: 10,
                   background: w.is_active ? T.badSoft : T.goodSoft,
@@ -312,6 +440,12 @@ export default function AdminWorkers() {
         worker={editWorker}
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
+        onSaved={load}
+      />
+      <TopUpSheet
+        worker={topUpWorker}
+        open={!!topUpWorker}
+        onClose={() => setTopUpWorker(null)}
         onSaved={load}
       />
     </div>

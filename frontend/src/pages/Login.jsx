@@ -14,12 +14,6 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  function handleDigit(d) {
-    if (d === '⌫') { setPin(p => p.slice(0, -1)); return }
-    if (d === '') return
-    if (pin.length < 4) setPin(p => p + d)
-  }
-
   async function handleSubmit(e) {
     e?.preventDefault()
     if (!employeeId.trim()) return toast.error('Enter your Employee ID')

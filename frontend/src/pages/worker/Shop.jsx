@@ -70,7 +70,7 @@ function ProductThumb({ cat, imageUrl, size = 96 }) {
 }
 
 export default function Shop() {
-  const { openCart } = useOutletContext()
+  useOutletContext()
   const { items: cartItems, add, updateQty } = useCart()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)

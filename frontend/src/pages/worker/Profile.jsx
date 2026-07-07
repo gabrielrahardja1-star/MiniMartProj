@@ -10,9 +10,11 @@ export default function Profile() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [spending, setSpending] = useState(null)
+  const [wallet, setWallet] = useState(null)
 
   useEffect(() => {
     api.get('/orders/my/spending').then(r => setSpending(r.data)).catch(() => {})
+    api.get('/wallet/me').then(r => setWallet(r.data)).catch(() => {})
   }, [])
 
   const initials = user?.name
@@ -60,6 +62,30 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Wallet balance */}
+      {wallet && (
+        <div style={{ padding: '0 20px 16px' }}>
+          <div style={{ background: T.surface, borderRadius: 20, padding: 18, border: `1px solid ${T.line}` }}>
+            <div style={{
+              color: T.ink3, fontSize: 11, fontWeight: 700,
+              letterSpacing: 0.5, textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Ic name="wallet" size={13} color={T.ink3} />
+              Wallet balance
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+              <div style={{ color: T.ink, fontSize: 26, fontWeight: 700 }}>
+                {formatCurrency(wallet.balance)}
+              </div>
+            </div>
+            <div style={{ marginTop: 8, color: T.ink3, fontSize: 12 }}>
+              Top up in person at the counter
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Spending summary */}
       {spending && (

@@ -88,12 +88,12 @@ def generate_qris(
 async def midtrans_webhook(request: Request, db: Session = Depends(get_db)):
     body = await request.json()
 
-    order_id_str    = body.get("order_id", "")
-    status_code     = body.get("status_code", "")
-    gross_amount    = body.get("gross_amount", "")
-    signature_key   = body.get("signature_key", "")
+    order_id_str       = body.get("order_id", "")
+    status_code        = body.get("status_code", "")
+    gross_amount       = body.get("gross_amount", "")
+    signature_key      = body.get("signature_key", "")
     transaction_status = body.get("transaction_status", "")
-    fraud_status    = body.get("fraud_status", "accept")
+    fraud_status       = body.get("fraud_status", "accept")
 
     # Verify signature: SHA512(order_id + status_code + gross_amount + server_key)
     if settings.MIDTRANS_SERVER_KEY:
@@ -111,6 +111,8 @@ async def midtrans_webhook(request: Request, db: Session = Depends(get_db)):
     order = db.get(Order, order_id)
     if not order:
         return {"status": "order_not_found"}
+    if order.payment_status == "paid":
+        return {"status": "already_paid"}
 
     # Map Midtrans status → our payment_status
     if transaction_status == "settlement" or (
@@ -125,7 +127,6 @@ async def midtrans_webhook(request: Request, db: Session = Depends(get_db)):
         order.payment_status = "pending"
 
     db.commit()
-    
     return {"status": "ok"}
 
 

@@ -79,7 +79,12 @@ const inputSt = {
 // ── FulfillSheet ─────────────────────────────────────────────────────────────
 function FulfillSheet({ order, open, onClose, onAdvance }) {
   const [checked, setChecked] = useState({})
-  useEffect(() => { if (open) setChecked({}) }, [open, order?.id])
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setChecked({})
+    }
+  }, [open, order?.id])
 
   if (!order) return null
 
@@ -220,7 +225,11 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
 function EditProductSheet({ product, open, onClose, onSaved }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
-  useEffect(() => { if (product) setDraft({ ...product }) }, [product?.id, open])
+  useEffect(() => {
+    if (product) {
+      setDraft({ ...product })
+    }
+  }, [product, open])
 
   if (!draft) return null
 

@@ -1,5 +1,7 @@
 """Module 05 — Admin Dashboard API tests."""
 
+from app.models.order import Order
+
 
 def _place_order(client, worker_token, product_id, quantity):
     return client.post(
@@ -7,6 +9,13 @@ def _place_order(client, worker_token, product_id, quantity):
         headers={"Authorization": f"Bearer {worker_token}"},
         json={"items": [{"product_id": product_id, "quantity": quantity}]},
     ).json()
+
+
+def _mark_order_ready(db_session, order_id):
+    order = db_session.get(Order, order_id)
+    order.payment_status = "paid"
+    order.status = "ready"
+    db_session.commit()
 
 
 def test_admin_list_products_shows_low_stock(client, admin_token, products):
@@ -72,8 +81,9 @@ def test_admin_filter_orders_by_status(client, admin_token, worker_token, produc
     assert all(o["status"] == "fulfilled" for o in resp.json())
 
 
-def test_fulfill_order(client, admin_token, worker_token, products):
+def test_fulfill_order(client, admin_token, worker_token, products, db_session):
     order = _place_order(client, worker_token, products[0].id, 1)
+    _mark_order_ready(db_session, order["id"])
     resp = client.put(
         f"/api/admin/orders/{order['id']}/fulfill",
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -97,8 +107,9 @@ def test_cancel_order_restores_stock(client, admin_token, worker_token, products
     assert gloves.stock == initial_stock  # stock fully restored
 
 
-def test_cannot_cancel_fulfilled_order(client, admin_token, worker_token, products):
+def test_cannot_cancel_fulfilled_order(client, admin_token, worker_token, products, db_session):
     order = _place_order(client, worker_token, products[0].id, 1)
+    _mark_order_ready(db_session, order["id"])
     client.put(f"/api/admin/orders/{order['id']}/fulfill",
                headers={"Authorization": f"Bearer {admin_token}"})
     resp = client.put(

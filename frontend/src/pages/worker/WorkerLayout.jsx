@@ -6,7 +6,6 @@ import { formatCurrency } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
-import QRCode from 'react-qr-code'
 
 // ─── Cart Sheet ───────────────────────────────────────────────────────────────
 
@@ -189,9 +188,16 @@ function PassOverlay({ order, onClose }) {
   })
 
   const [payStatus, setPayStatus] = useState(order.payment_status || 'unpaid')
-  const [qrString, setQrString] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(null)
+  const [payingWallet, setPayingWallet] = useState(false)
   const pollRef = useRef(null)
+
+  useEffect(() => {
+    api.get('/wallet/me')
+      .then(({ data }) => setWalletBalance(data.balance))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (payStatus === 'pending') {
@@ -202,7 +208,9 @@ function PassOverlay({ order, onClose }) {
             setPayStatus(data.payment_status)
             clearInterval(pollRef.current)
           }
-        } catch {}
+        } catch {
+          // Ignore transient polling failures; the next interval will retry.
+        }
       }, 3000)
     }
     return () => clearInterval(pollRef.current)
@@ -240,6 +248,22 @@ function PassOverlay({ order, onClose }) {
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to generate payment')
       setGenerating(false)
+    }
+  }
+
+  async function handlePayWithWallet() {
+    if (payingWallet || walletBalance < orderTotal) return
+    setPayingWallet(true)
+    try {
+      const { data } = await api.post(`/wallet/pay/${order.id}`)
+      setPayStatus(data.payment_status)
+      const balanceRes = await api.get('/wallet/me')
+      setWalletBalance(balanceRes.data.balance)
+      toast.success('Paid with wallet balance')
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Wallet payment failed')
+    } finally {
+      setPayingWallet(false)
     }
   }
 
@@ -438,20 +462,55 @@ function PassOverlay({ order, onClose }) {
               </button>
             </div>
           ) : (
-            <button
-              onClick={handleGenerateQris}
-              disabled={generating}
-              style={{
-                width: '100%', padding: '16px', borderRadius: 16,
-                background: generating ? T.ink2 : T.brand,
-                color: '#fff', fontSize: 16, fontWeight: 700,
-                border: 'none', cursor: generating ? 'not-allowed' : 'pointer',
-                fontFamily: FONT,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              }}
-            >
-              {generating ? 'Generating QR…' : 'Pay with QRIS'}
-            </button>
+            <div style={{
+              background: T.surface, borderRadius: 18, padding: 16,
+              border: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: 10,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ color: T.ink3, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                  Wallet balance
+                </div>
+                <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>
+                  {walletBalance === null ? 'Loading…' : formatCurrency(walletBalance)}
+                </div>
+              </div>
+              <button
+                onClick={handleGenerateQris}
+                disabled={generating || payingWallet}
+                style={{
+                  width: '100%', padding: '16px', borderRadius: 16,
+                  background: generating ? T.ink2 : T.brand,
+                  color: '#fff', fontSize: 16, fontWeight: 700,
+                  border: 'none', cursor: generating || payingWallet ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                }}
+              >
+                {generating ? 'Generating QR…' : 'Pay with QRIS'}
+              </button>
+              <button
+                onClick={handlePayWithWallet}
+                disabled={payingWallet || generating || walletBalance === null || walletBalance < orderTotal}
+                style={{
+                  width: '100%', padding: '15px', borderRadius: 16,
+                  background: walletBalance !== null && walletBalance >= orderTotal && !payingWallet ? T.ink : T.surfaceAlt,
+                  color: walletBalance !== null && walletBalance >= orderTotal && !payingWallet ? '#fff' : T.ink3,
+                  fontSize: 15, fontWeight: 700,
+                  border: 'none',
+                  cursor: walletBalance !== null && walletBalance >= orderTotal && !payingWallet ? 'pointer' : 'not-allowed',
+                  fontFamily: FONT,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                <Ic name="wallet" size={18} color={walletBalance !== null && walletBalance >= orderTotal && !payingWallet ? '#fff' : T.ink3} />
+                {payingWallet ? 'Paying…' : 'Pay with wallet balance'}
+              </button>
+              {walletBalance !== null && walletBalance < orderTotal && (
+                <div style={{ color: T.ink3, fontSize: 12, textAlign: 'center' }}>
+                  Top up with the admin at the counter
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

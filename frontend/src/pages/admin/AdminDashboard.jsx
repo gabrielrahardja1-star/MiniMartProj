@@ -7,7 +7,7 @@ import { formatCurrency, formatDateTime } from '../../utils/format'
 import api from '../../api'
 
 export default function AdminDashboard() {
-  const { openInvoice, openFulfill, refreshKey } = useOutletContext()
+  const { openInvoice, refreshKey } = useOutletContext()
   const [orders, setOrders] = useState([])
   const [products, setProducts] = useState([])
   const [invoices, setInvoices] = useState([])

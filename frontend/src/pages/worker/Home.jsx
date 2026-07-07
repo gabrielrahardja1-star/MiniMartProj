@@ -9,11 +9,12 @@ import api from '../../api'
 import toast from 'react-hot-toast'
 
 export default function Home() {
-  const { openCart, openPass } = useOutletContext()
+  const { openPass } = useOutletContext()
   const { user } = useAuth()
   const { items: cartItems, add } = useCart()
   const [orders, setOrders] = useState([])
   const [spending, setSpending] = useState(null)
+  const [wallet, setWallet] = useState(null)
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -21,11 +22,13 @@ export default function Home() {
     Promise.all([
       api.get('/orders/my'),
       api.get('/orders/my/spending'),
+      api.get('/wallet/me'),
       api.get('/products/'),
     ])
-      .then(([o, s, p]) => {
+      .then(([o, s, w, p]) => {
         setOrders(o.data)
         setSpending(s.data)
+        setWallet(w.data)
         setProducts(p.data)
       })
       .catch(() => toast.error('Failed to load data'))
@@ -113,6 +116,41 @@ export default function Home() {
               <Ic name="arrow" size={18} color="#fff" />
             </div>
           </button>
+        </div>
+      )}
+
+      {/* Wallet balance */}
+      {wallet && (
+        <div style={{ padding: '0 20px 16px' }}>
+          <div style={{
+            background: T.surface, borderRadius: 20, padding: 18,
+            border: `1px solid ${T.line}`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  color: T.ink3, fontSize: 12, fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: 0.5,
+                }}>
+                  <Ic name="wallet" size={13} color={T.ink3} />
+                  Wallet balance
+                </div>
+                <div style={{ marginTop: 4, color: T.ink, fontSize: 24, fontWeight: 700, letterSpacing: -0.4 }}>
+                  {formatCurrency(wallet.balance)}
+                </div>
+              </div>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12,
+                background: T.goodSoft, display: 'grid', placeItems: 'center',
+              }}>
+                <Ic name="wallet" size={20} color={T.good} />
+              </div>
+            </div>
+            <div style={{ marginTop: 12, color: T.ink3, fontSize: 12 }}>
+              Top up in person at the counter
+            </div>
+          </div>
         </div>
       )}
 

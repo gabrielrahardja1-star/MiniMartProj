@@ -17,6 +17,7 @@ import AdminProfile from './pages/admin/AdminProfile'
 import AdminWorkers from './pages/admin/AdminWorkers'
 import Invoices from './pages/admin/Invoices'
 import Reports from './pages/admin/Reports'
+import WalletLedger from './pages/admin/WalletLedger'
 
 function RequireAuth({ children, role }) {
   const { user } = useAuth()
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="workers"   element={<AdminWorkers />} />
               <Route path="invoices"  element={<Invoices />} />
               <Route path="reports"   element={<Reports />} />
+              <Route path="wallet-ledger" element={<WalletLedger />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

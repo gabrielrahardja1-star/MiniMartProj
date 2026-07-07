@@ -60,6 +60,7 @@ class WorkerOut(BaseModel):
     name: str
     role: str
     is_active: bool
+    balance: float
 
     model_config = {"from_attributes": True}
 
