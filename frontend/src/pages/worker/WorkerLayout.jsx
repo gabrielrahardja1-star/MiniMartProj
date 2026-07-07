@@ -188,6 +188,7 @@ function PassOverlay({ order, onClose }) {
   })
 
   const [payStatus, setPayStatus] = useState(order.payment_status || 'unpaid')
+  const [paymentMethod, setPaymentMethod] = useState(order.payment_method || null)
   const [generating, setGenerating] = useState(false)
   const [walletBalance, setWalletBalance] = useState(null)
   const [payingWallet, setPayingWallet] = useState(false)
@@ -239,6 +240,7 @@ function PassOverlay({ order, onClose }) {
       }
 
       setGenerating(false)
+      setPaymentMethod('qris')
       window.snap.pay(data.snap_token, {
         onSuccess: () => setPayStatus('paid'),
         onPending: () => setPayStatus('pending'),
@@ -257,6 +259,7 @@ function PassOverlay({ order, onClose }) {
     try {
       const { data } = await api.post(`/wallet/pay/${order.id}`)
       setPayStatus(data.payment_status)
+      setPaymentMethod(data.payment_method)
       const balanceRes = await api.get('/wallet/me')
       setWalletBalance(balanceRes.data.balance)
       toast.success('Paid with wallet balance')
@@ -436,7 +439,9 @@ function PassOverlay({ order, onClose }) {
               </div>
               <div>
                 <div style={{ color: T.good, fontSize: 15, fontWeight: 700 }}>Payment confirmed</div>
-                <div style={{ color: T.ink2, fontSize: 12, marginTop: 2 }}>QRIS payment received</div>
+                <div style={{ color: T.ink2, fontSize: 12, marginTop: 2 }}>
+                  {paymentMethod === 'wallet' ? 'Wallet balance deducted' : 'QRIS payment received'}
+                </div>
               </div>
             </div>
           ) : (payStatus === 'failed' || payStatus === 'expired') ? (

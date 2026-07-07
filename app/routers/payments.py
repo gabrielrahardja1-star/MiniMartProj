@@ -69,6 +69,7 @@ def generate_qris(
     redirect_url = data.get("redirect_url", "")
 
     order.payment_status = "pending"
+    order.payment_method = "qris"
     db.commit()
 
     return {

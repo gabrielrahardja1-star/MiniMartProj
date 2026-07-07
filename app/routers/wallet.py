@@ -71,6 +71,7 @@ def pay_order_with_wallet(
 
     locked_worker.balance = round(current_balance - order_total, 2)
     order.payment_status = "paid"
+    order.payment_method = "wallet"
     order.updated_at = datetime.now(timezone.utc)
     db.add(WalletTransaction(
         worker_id=locked_worker.id,

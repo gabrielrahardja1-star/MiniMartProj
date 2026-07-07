@@ -70,6 +70,7 @@ def test_wallet_payment_success_debits_balance_and_marks_order_paid(
 
     assert resp.status_code == 200
     assert resp.json()["payment_status"] == "paid"
+    assert resp.json()["payment_method"] == "wallet"
     db_session.refresh(worker)
     assert float(worker.balance) == 9.0
 

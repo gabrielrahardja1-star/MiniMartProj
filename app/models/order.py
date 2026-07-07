@@ -11,6 +11,7 @@ class Order(Base):
     worker_id: Mapped[int] = mapped_column(ForeignKey("workers.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, fulfilled, cancelled
     payment_status: Mapped[str] = mapped_column(String(20), default="unpaid")  # unpaid, pending, paid, failed, expired
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "qris" | "wallet"
     total: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

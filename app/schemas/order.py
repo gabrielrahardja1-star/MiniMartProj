@@ -34,6 +34,7 @@ class OrderOut(BaseModel):
     worker_id: int
     status: str
     payment_status: str
+    payment_method: str | None = None
     total: float
     created_at: datetime
     items: list[OrderItemOut]
