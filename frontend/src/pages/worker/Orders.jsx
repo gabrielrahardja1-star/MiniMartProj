@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { T, FONT } from '../../utils/theme'
-import { formatCurrency, formatMonth } from '../../utils/format'
+import { formatCurrency, formatMonth, formatDate, formatSlotLabel } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
@@ -102,6 +102,11 @@ export default function Orders() {
                 <div>
                   <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>Order #{order.id}</div>
                   <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{date} · {time}</div>
+                  {order.pickup_date && order.pickup_slot && (
+                    <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
+                      Pickup: {formatDate(order.pickup_date)} · {formatSlotLabel(order.pickup_slot)}
+                    </div>
+                  )}
                 </div>
                 <div style={{
                   padding: '5px 10px', borderRadius: 999,

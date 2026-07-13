@@ -1,12 +1,13 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from app.db.session import get_db
 from app.models.order import Order, OrderItem
 from app.models.product import Product
 from app.models.worker import Worker
-from app.schemas.order import CreateOrderRequest, OrderOut, SpendingSummary
+from app.schemas.order import CreateOrderRequest, OrderOut, SpendingSummary, PickupSlotOut
 from app.core.deps import get_current_worker
+from app.core.pickup import validate_pickup_choice, SLOTS, is_slot_available
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -20,7 +21,17 @@ def create_order(
     if not body.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item")
 
-    order = Order(worker_id=worker.id, status="pending", total=0.0)
+    error = validate_pickup_choice(body.pickup_date, body.pickup_slot)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    order = Order(
+        worker_id=worker.id,
+        status="pending",
+        total=0.0,
+        pickup_date=body.pickup_date,
+        pickup_slot=body.pickup_slot,
+    )
     db.add(order)
     db.flush()
 
@@ -63,6 +74,22 @@ def create_order(
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.get("/pickup-slots", response_model=list[PickupSlotOut])
+def pickup_slots(
+    date: date,
+    worker: Worker = Depends(get_current_worker),
+):
+    labels = {"12:00": "12:00 PM", "17:00": "5:00 PM"}
+    return [
+        PickupSlotOut(
+            slot=s,
+            label=labels[s],
+            available=is_slot_available(date, s),
+        )
+        for s in SLOTS
+    ]
 
 
 @router.get("/my", response_model=list[OrderOut])

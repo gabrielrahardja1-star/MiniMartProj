@@ -22,3 +22,7 @@ export function formatMonth(yyyyMM) {
   const [year, month] = yyyyMM.split('-')
   return new Date(year, month - 1).toLocaleString('en-AU', { month: 'long', year: 'numeric' })
 }
+
+export function formatSlotLabel(slot) {
+  return slot === '12:00' ? '12:00 PM' : slot === '17:00' ? '5:00 PM' : slot
+}

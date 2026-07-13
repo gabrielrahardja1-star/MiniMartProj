@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { T } from '../../utils/theme'
-import { formatCurrency, formatDateTime } from '../../utils/format'
+import { formatCurrency, formatDateTime, formatDate, formatSlotLabel } from '../../utils/format'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
@@ -37,6 +37,11 @@ function OrderCard({ order, onOpen, onMarkReady, onFulfill, onCancel }) {
           <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
             #{order.id} · {formatDateTime(order.created_at)} · {order.worker_employee_id}
           </div>
+          {order.pickup_date && order.pickup_slot && (
+            <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
+              Pickup: {formatDate(order.pickup_date)} · {formatSlotLabel(order.pickup_slot)}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div style={{

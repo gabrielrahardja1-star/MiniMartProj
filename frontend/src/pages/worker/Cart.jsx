@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react'
 import { useCart } from '../../context/CartContext'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, formatSlotLabel } from '../../utils/format'
 import EmptyState from '../../components/EmptyState'
 import api from '../../api'
 import toast from 'react-hot-toast'
@@ -11,17 +11,55 @@ export default function Cart() {
   const { items, remove, updateQty, clear, total } = useCart()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [pickupDate, setPickupDate] = useState('')
+  const [pickupSlot, setPickupSlot] = useState(null)
+  const [slotOptions, setSlotOptions] = useState([])
+  const [fetchingSlots, setFetchingSlots] = useState(false)
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]
+    setPickupDate(today)
+  }, [])
+
+  useEffect(() => {
+    if (!pickupDate) return
+    const fetchSlots = async () => {
+      setFetchingSlots(true)
+      try {
+        const response = await api.get('/orders/pickup-slots', { params: { date: pickupDate } })
+        setSlotOptions(response.data)
+      } catch (err) {
+        toast.error('Failed to load pickup slots')
+      } finally {
+        setFetchingSlots(false)
+      }
+    }
+    fetchSlots()
+  }, [pickupDate])
 
   async function placeOrder() {
-    if (items.length === 0) return
+    if (items.length === 0 || !pickupSlot) return
     setLoading(true)
     try {
-      await api.post('/orders/', { items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity })) })
+      await api.post('/orders/', {
+        items: items.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+        pickup_date: pickupDate,
+        pickup_slot: pickupSlot,
+      })
       clear()
       toast.success('Order placed!')
       navigate('/orders')
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Order failed')
+      // Re-fetch slots in case cutoff has passed
+      if (pickupDate) {
+        try {
+          const response = await api.get('/orders/pickup-slots', { params: { date: pickupDate } })
+          setSlotOptions(response.data)
+        } catch (e) {
+          // Silently fail, slots already shown as unavailable
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -58,7 +96,52 @@ export default function Cart() {
               action={{ label: 'Browse Products', onClick: () => navigate('/shop') }}
             />
           </div>
-        ) : items.map(item => (
+        ) : (
+          <>
+            {/* Pickup slot selector */}
+            <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3 border-l-4 border-blue-400">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Pickup Date</label>
+                <input
+                  type="date"
+                  value={pickupDate}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Pickup Time</label>
+                <div className="space-y-2">
+                  {fetchingSlots ? (
+                    <p className="text-xs text-slate-400">Loading slots…</p>
+                  ) : slotOptions.map(slot => (
+                    <button
+                      key={slot.slot}
+                      onClick={() => setPickupSlot(slot.available ? slot.slot : null)}
+                      disabled={!slot.available}
+                      className={`w-full px-4 py-3 rounded-lg font-medium transition-all ${
+                        pickupSlot === slot.slot
+                          ? 'bg-blue-500 text-white border-2 border-blue-600'
+                          : slot.available
+                            ? 'bg-slate-100 text-slate-800 border-2 border-slate-200 hover:bg-slate-200'
+                            : 'bg-slate-50 text-slate-400 border-2 border-slate-100 cursor-not-allowed'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>{slot.label}</span>
+                        {!slot.available && <span className="text-xs">Cutoff passed</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Cart items */}
+          </>
+        )}
+        {items.length > 0 && items.map(item => (
           <div
             key={item.product_id}
             className="bg-white rounded-2xl shadow-sm overflow-hidden flex items-center border-l-4 border-amber-400"
@@ -97,6 +180,8 @@ export default function Cart() {
             </div>
           </div>
         ))}
+          </>
+        )}
       </div>
 
       {/* Bottom bar */}
@@ -111,7 +196,7 @@ export default function Cart() {
           </div>
           <button
             onClick={placeOrder}
-            disabled={loading}
+            disabled={loading || !pickupSlot}
             style={{ touchAction: 'manipulation' }}
             className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 active:scale-[0.98] disabled:opacity-50 text-white font-bold py-4 rounded-2xl shadow-lg shadow-amber-200 transition-all duration-150 text-base"
           >

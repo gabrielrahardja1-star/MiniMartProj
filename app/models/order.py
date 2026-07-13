@@ -1,5 +1,5 @@
-from datetime import datetime
-from sqlalchemy import String, Numeric, Integer, DateTime, ForeignKey
+from datetime import datetime, date
+from sqlalchemy import String, Numeric, Integer, DateTime, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -12,6 +12,8 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, fulfilled, cancelled
     payment_status: Mapped[str] = mapped_column(String(20), default="unpaid")  # unpaid, pending, paid, failed, expired
     payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "qris" | "wallet"
+    pickup_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    pickup_slot: Mapped[str | None] = mapped_column(String(10), nullable=True)  # "12:00" or "17:00"
     total: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

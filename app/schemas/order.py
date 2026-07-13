@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, date
+from typing import Literal
 from pydantic import BaseModel, model_validator
 
 
@@ -7,8 +8,13 @@ class OrderItemRequest(BaseModel):
     quantity: int
 
 
+PickupSlot = Literal["12:00", "17:00"]
+
+
 class CreateOrderRequest(BaseModel):
     items: list[OrderItemRequest]
+    pickup_date: date
+    pickup_slot: PickupSlot
 
 
 class OrderItemOut(BaseModel):
@@ -29,12 +35,20 @@ class OrderItemOut(BaseModel):
         return data
 
 
+class PickupSlotOut(BaseModel):
+    slot: PickupSlot
+    label: str
+    available: bool
+
+
 class OrderOut(BaseModel):
     id: int
     worker_id: int
     status: str
     payment_status: str
     payment_method: str | None = None
+    pickup_date: date | None = None
+    pickup_slot: str | None = None
     total: float
     created_at: datetime
     items: list[OrderItemOut]
