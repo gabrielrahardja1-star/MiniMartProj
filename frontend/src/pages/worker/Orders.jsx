@@ -61,7 +61,7 @@ export default function Orders() {
                 {formatCurrency(spending.total_spend)}
               </div>
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>
-                {spending.order_count} {spending.order_count === 1 ? t('worker.orders.orderCount') : t('worker.orders.orderCount')}} · {t('worker.orders.autoDeducted')}
+                {spending.order_count} {spending.order_count === 1 ? t('worker.orders.orderCount') : t('worker.orders.orderCount')} · {t('worker.orders.autoDeducted')}
               </div>
             </div>
           </div>
