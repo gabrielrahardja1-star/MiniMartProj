@@ -1,0 +1,280 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "signOut": "Sign out",
+    "language": "Language",
+    "edit": "Edit",
+    "delete": "Delete",
+    "back": "Back",
+    "search": "Search"
+  },
+  "status": {
+    "order": {
+      "pending": "Pending",
+      "fulfilled": "Fulfilled",
+      "cancelled": "Cancelled"
+    },
+    "invoice": {
+      "pending_review": "Pending Review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "payment": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "failed": "Failed",
+      "expired": "Expired"
+    }
+  },
+  "login": {
+    "title": "MiniMart",
+    "subtitle": "Mining Site Store",
+    "employeeId": "Employee ID",
+    "employeeIdPlaceholder": "e.g. W001",
+    "pin": "PIN",
+    "signIn": "Sign In",
+    "signingIn": "Signing in…",
+    "errors": {
+      "missingId": "Enter your Employee ID",
+      "missingPin": "Enter your 4-digit PIN",
+      "invalidCreds": "Invalid Employee ID or PIN"
+    }
+  },
+  "worker": {
+    "home": {
+      "title": "Home",
+      "welcome": "Welcome back",
+      "quickActions": "Quick Actions",
+      "recentOrders": "Recent Orders",
+      "noOrders": "No orders yet"
+    },
+    "shop": {
+      "title": "Shop",
+      "itemsAvailable": "items available",
+      "search": "Search products",
+      "searchPlaceholder": "Search products",
+      "noResults": "No products found",
+      "noResultsFor": "No results for \"{{query}}\"",
+      "noCategoryResults": "No products in this category",
+      "clearSearch": "Clear search",
+      "failedToLoad": "Failed to load products",
+      "add": "Add",
+      "addToCart": "Add to cart",
+      "quantity": "Quantity",
+      "price": "Price",
+      "stock": "Stock",
+      "lowStock": "{{count}} LEFT",
+      "outOfStock": "OUT",
+      "cart": "Cart",
+      "cartEmpty": "Your cart is empty",
+      "total": "Total",
+      "checkout": "Checkout",
+      "selectPickup": "Select pickup time",
+      "pickupSlots": "Available Pickup Times",
+      "noon": "12:00 PM",
+      "evening": "5:00 PM",
+      "slotFull": "This slot is full",
+      "confirmOrder": "Confirm Order",
+      "categories": {
+        "all": "All",
+        "drinks": "Drinks",
+        "snacks": "Snacks",
+        "meals": "Meals",
+        "care": "Personal",
+        "gear": "Site Gear"
+      }
+    },
+    "orders": {
+      "title": "Orders",
+      "myOrders": "My Orders",
+      "noOrders": "No orders yet",
+      "orderId": "Order ID",
+      "date": "Date",
+      "items": "Items",
+      "total": "Total",
+      "status": "Status",
+      "paymentStatus": "Payment",
+      "pickup": "Pickup",
+      "viewDetails": "View Details",
+      "spending": "This Month's Spending",
+      "totalSpend": "Total Spend",
+      "orderCount": "Orders"
+    },
+    "profile": {
+      "title": "Profile",
+      "wallet": "Wallet",
+      "walletBalance": "Wallet Balance",
+      "topUpHint": "Top up in person at the counter",
+      "transactions": "Transactions",
+      "spending": "Spending",
+      "totalSpending": "Total Spending",
+      "monthlySpending": "Monthly Spending",
+      "acrossOrder": "across 1 order",
+      "acrossOrders": "across {{count}} orders",
+      "noTransactions": "No transactions yet",
+      "menu": {
+        "notifications": "Notifications",
+        "notificationsSub": "Pickup reminders on",
+        "contactStore": "Contact store",
+        "contactStoreSub": "Tap to call the MiniMart",
+        "orderHistory": "Order history",
+        "orderHistorySub": "View all past receipts",
+        "sendFeedback": "Send feedback",
+        "signOut": "Sign out"
+      }
+    }
+  },
+  "admin": {
+    "dashboard": {
+      "title": "Dashboard",
+      "overview": "Overview",
+      "totalOrders": "Total Orders",
+      "totalRevenue": "Total Revenue",
+      "recentOrders": "Recent Orders",
+      "lowStockItems": "Low Stock Items"
+    },
+    "orders": {
+      "title": "Orders",
+      "allOrders": "All Orders",
+      "orderId": "Order ID",
+      "worker": "Worker",
+      "date": "Date",
+      "total": "Total",
+      "status": "Status",
+      "paymentStatus": "Payment",
+      "actions": "Actions",
+      "export": "Export as CSV",
+      "noOrders": "No orders found"
+    },
+    "products": {
+      "title": "Inventory",
+      "allProducts": "All Products",
+      "addProduct": "Add Product",
+      "editProduct": "Edit Product",
+      "sku": "SKU",
+      "name": "Name",
+      "price": "Price",
+      "stock": "Stock",
+      "lowStock": "Low stock",
+      "active": "Active",
+      "actions": "Actions",
+      "delete": "Delete",
+      "edit": "Edit",
+      "noProducts": "No products found",
+      "createSuccess": "Product created successfully",
+      "updateSuccess": "Product updated successfully",
+      "deleteSuccess": "Product deleted successfully",
+      "errors": {
+        "skuExists": "SKU already exists",
+        "fillAllFields": "Please fill all required fields"
+      }
+    },
+    "workers": {
+      "title": "Workers",
+      "allWorkers": "All Workers",
+      "addWorker": "Add Worker",
+      "editWorker": "Edit Worker",
+      "employeeId": "Employee ID",
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "actions": "Actions",
+      "delete": "Delete",
+      "edit": "Edit",
+      "topUpWallet": "Top up wallet",
+      "noWorkers": "No workers found",
+      "createSuccess": "Worker created successfully",
+      "updateSuccess": "Worker updated successfully",
+      "deleteSuccess": "Worker deleted successfully",
+      "roles": {
+        "admin": "Admin",
+        "cashier": "Cashier",
+        "worker": "Worker"
+      }
+    },
+    "invoices": {
+      "title": "Invoices",
+      "allInvoices": "All Invoices",
+      "invoiceId": "Invoice ID",
+      "date": "Date",
+      "status": "Status",
+      "total": "Total",
+      "actions": "Actions",
+      "viewDetails": "View Details",
+      "noInvoices": "No invoices found"
+    },
+    "reports": {
+      "title": "Reports",
+      "generate": "Generate Report",
+      "dateRange": "Date Range",
+      "type": "Report Type",
+      "sales": "Sales Report",
+      "inventory": "Inventory Report",
+      "workers": "Worker Report",
+      "export": "Export"
+    },
+    "walletLedger": {
+      "title": "Wallet Ledger",
+      "worker": "Worker",
+      "date": "Date",
+      "type": "Type",
+      "amount": "Amount",
+      "balance": "Balance",
+      "action": "Action",
+      "topUp": "Top-up",
+      "payment": "Payment",
+      "noTransactions": "No transactions found"
+    },
+    "profile": {
+      "title": "Profile",
+      "role": "Admin",
+      "menu": {
+        "reports": "Reports & exports",
+        "invoices": "Invoices",
+        "manageWorkers": "Manage workers",
+        "walletLedger": "Wallet ledger",
+        "suppliers": "Suppliers",
+        "settings": "Settings",
+        "signOut": "Sign out"
+      }
+    }
+  },
+  "payment": {
+    "title": "Payment",
+    "chooseMethod": "Choose Payment Method",
+    "qrPayment": "QR Code Payment",
+    "walletPayment": "Wallet Payment",
+    "amount": "Amount",
+    "scanQr": "Scan QR Code",
+    "scanHint": "Use your mobile banking app or e-wallet to scan",
+    "checkStatus": "Check Payment Status",
+    "paymentPending": "Payment is pending",
+    "paymentSuccess": "Payment successful",
+    "paymentFailed": "Payment failed",
+    "walletBalance": "Wallet Balance",
+    "insufficientBalance": "Insufficient wallet balance"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "balance": "Balance",
+    "transactions": "Transactions",
+    "topUp": "Top Up",
+    "topUpAmount": "Top Up Amount",
+    "topUpSuccess": "Top up successful",
+    "noTransactions": "No transactions yet",
+    "type": "Type",
+    "amount": "Amount",
+    "date": "Date"
+  },
+  "modal": {
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure? This action cannot be undone.",
+    "error": "Error",
+    "success": "Success"
+  }
+}

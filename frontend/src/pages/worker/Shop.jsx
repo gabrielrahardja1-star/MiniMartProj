@@ -1,20 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useCart } from '../../context/CartContext'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
-const CATEGORIES = [
-  { id: 'all',    label: 'All',       icon: 'grid' },
-  { id: 'drinks', label: 'Drinks',    icon: 'cup' },
-  { id: 'snacks', label: 'Snacks',    icon: 'snack' },
-  { id: 'meals',  label: 'Meals',     icon: 'meal' },
-  { id: 'care',   label: 'Personal',  icon: 'care' },
-  { id: 'gear',   label: 'Site Gear', icon: 'helmet' },
-]
+// Categories will be defined inside the component to use useTranslation()
 
 const CAT_COLORS = {
   drinks: ['#DCEEFB', '#3B82F6'],
@@ -71,18 +65,28 @@ function ProductThumb({ cat, imageUrl, size = 96 }) {
 
 export default function Shop() {
   useOutletContext()
+  const { t } = useTranslation()
   const { items: cartItems, add, updateQty } = useCart()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [cat, setCat] = useState('all')
   const [q, setQ] = useState('')
 
+  const CATEGORIES = [
+    { id: 'all',    label: t('worker.shop.categories.all'),    icon: 'grid' },
+    { id: 'drinks', label: t('worker.shop.categories.drinks'),  icon: 'cup' },
+    { id: 'snacks', label: t('worker.shop.categories.snacks'),  icon: 'snack' },
+    { id: 'meals',  label: t('worker.shop.categories.meals'),   icon: 'meal' },
+    { id: 'care',   label: t('worker.shop.categories.care'),    icon: 'care' },
+    { id: 'gear',   label: t('worker.shop.categories.gear'),    icon: 'helmet' },
+  ]
+
   useEffect(() => {
     api.get('/products/')
       .then(r => setProducts(r.data))
-      .catch(() => toast.error('Failed to load products'))
+      .catch(() => toast.error(t('worker.shop.failedToLoad')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   const withCat = products.map(p => ({ ...p, cat: guessCategory(p.name) }))
 
@@ -104,9 +108,9 @@ export default function Shop() {
     <div style={{ background: T.bg, fontFamily: FONT, paddingBottom: 100 }}>
       {/* Header */}
       <div style={{ padding: '56px 20px 12px' }}>
-        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Shop</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('worker.shop.title')}</div>
         <div style={{ color: T.ink3, fontSize: 13, marginTop: 2 }}>
-          {products.length} items available
+          {products.length} {t('worker.shop.itemsAvailable')}
         </div>
       </div>
 
@@ -120,7 +124,7 @@ export default function Shop() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Search products"
+            placeholder={t('worker.shop.searchPlaceholder')}
             style={{
               flex: 1, border: 'none', outline: 'none', background: 'transparent',
               fontSize: 15, color: T.ink, fontFamily: FONT,
@@ -181,7 +185,7 @@ export default function Shop() {
         <div style={{ textAlign: 'center', padding: '48px 20px', color: T.ink3 }}>
           <Ic name="search" size={36} color={T.line} />
           <div style={{ marginTop: 12, fontSize: 15 }}>
-            {q ? `No results for "${q}"` : 'No products in this category'}
+            {q ? t('worker.shop.noResultsFor', { query: q }) : t('worker.shop.noCategoryResults')}
           </div>
           {q && (
             <button
@@ -192,7 +196,7 @@ export default function Shop() {
                 border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: FONT,
               }}
             >
-              Clear search
+              {t('worker.shop.clearSearch')}
             </button>
           )}
         </div>
@@ -217,7 +221,7 @@ export default function Shop() {
                       background: T.warnSoft, color: T.warn,
                       fontSize: 10, fontWeight: 700,
                       padding: '4px 8px', borderRadius: 999, letterSpacing: 0.3,
-                    }}>{p.stock} LEFT</div>
+                    }}>{t('worker.shop.lowStock', { count: p.stock })}</div>
                   )}
                   {outOfStock && (
                     <div style={{
@@ -225,7 +229,7 @@ export default function Shop() {
                       background: T.badSoft, color: T.bad,
                       fontSize: 10, fontWeight: 700,
                       padding: '4px 8px', borderRadius: 999,
-                    }}>OUT</div>
+                    }}>{t('worker.shop.outOfStock')}</div>
                   )}
                 </div>
 
@@ -270,7 +274,7 @@ export default function Shop() {
                           fontFamily: FONT,
                         }}
                       >
-                        Add
+                        {t('worker.shop.add')}
                       </button>
                     )}
                   </div>

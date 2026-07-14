@@ -1,10 +1,20 @@
-import { ORDER_STATUS_CLASSES, ORDER_STATUS_LABELS, STATUS_FALLBACK } from '../utils/status'
+import { useTranslation } from 'react-i18next'
+import { ORDER_STATUS_CLASSES, ORDER_STATUS_KEYS, INVOICE_STATUS_KEYS, STATUS_FALLBACK } from '../utils/status'
 
-export default function Badge({ status, map, label, className = '' }) {
+export default function Badge({ status, map, statusKey, label, className = '' }) {
+  const { t } = useTranslation()
   const colorMap = map ?? ORDER_STATUS_CLASSES
-  const labelMap = ORDER_STATUS_LABELS
   const colorClass = colorMap[status] ?? STATUS_FALLBACK
-  const text = label ?? labelMap[status] ?? status
+
+  let text
+  if (label) {
+    text = label
+  } else if (statusKey) {
+    text = t(statusKey)
+  } else {
+    // Fallback: try to infer from ORDER_STATUS_KEYS (default map)
+    text = t(ORDER_STATUS_KEYS[status] ?? status)
+  }
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass} ${className}`}>

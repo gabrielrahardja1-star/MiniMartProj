@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency, formatMonth } from '../../utils/format'
 import Ic from '../../components/Ic'
+import LanguageSwitcher from '../../components/LanguageSwitcher'
 import api from '../../api'
 
 export default function Profile() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [spending, setSpending] = useState(null)
   const [wallet, setWallet] = useState(null)
 
@@ -27,17 +30,17 @@ export default function Profile() {
   }
 
   const menuRows = [
-    { icon: 'bell',   label: 'Notifications',  sub: 'Pickup reminders on' },
-    { icon: 'phone',  label: 'Contact store',   sub: 'Tap to call the MiniMart' },
-    { icon: 'orders', label: 'Order history',   sub: 'View all past receipts' },
-    { icon: 'star',   label: 'Send feedback',   sub: '' },
+    { icon: 'bell',   label: t('worker.profile.menu.notifications'),  sub: t('worker.profile.menu.notificationsSub') },
+    { icon: 'phone',  label: t('worker.profile.menu.contactStore'),   sub: t('worker.profile.menu.contactStoreSub') },
+    { icon: 'orders', label: t('worker.profile.menu.orderHistory'),   sub: t('worker.profile.menu.orderHistorySub') },
+    { icon: 'star',   label: t('worker.profile.menu.sendFeedback'),   sub: '' },
   ]
 
   return (
     <div style={{ background: T.bg, fontFamily: FONT, paddingBottom: 100 }}>
       {/* Header */}
       <div style={{ padding: '56px 20px 16px' }}>
-        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Profile</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('worker.profile.title')}</div>
       </div>
 
       {/* Worker card */}
@@ -73,7 +76,7 @@ export default function Profile() {
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
               <Ic name="wallet" size={13} color={T.ink3} />
-              Wallet balance
+              {t('worker.profile.walletBalance')}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
               <div style={{ color: T.ink, fontSize: 26, fontWeight: 700 }}>
@@ -81,11 +84,16 @@ export default function Profile() {
               </div>
             </div>
             <div style={{ marginTop: 8, color: T.ink3, fontSize: 12 }}>
-              Top up in person at the counter
+              {t('worker.profile.topUpHint')}
             </div>
           </div>
         </div>
       )}
+
+      {/* Language Switcher */}
+      <div style={{ padding: '0 20px 16px' }}>
+        <LanguageSwitcher />
+      </div>
 
       {/* Spending summary */}
       {spending && (
@@ -95,14 +103,14 @@ export default function Profile() {
               color: T.ink3, fontSize: 11, fontWeight: 700,
               letterSpacing: 0.5, textTransform: 'uppercase',
             }}>
-              Total spending · {formatMonth(spending.month)}
+              {t('worker.profile.totalSpending')} · {formatMonth(spending.month)}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
               <div style={{ color: T.ink, fontSize: 26, fontWeight: 700 }}>
                 {formatCurrency(spending.total_spend)}
               </div>
               <div style={{ color: T.ink3, fontSize: 13 }}>
-                across {spending.order_count} {spending.order_count === 1 ? 'order' : 'orders'}
+                {t(spending.order_count === 1 ? 'worker.profile.acrossOrder' : 'worker.profile.acrossOrders', { count: spending.order_count })}
               </div>
             </div>
             <div style={{ marginTop: 8, color: T.ink3, fontSize: 12 }}>
@@ -152,7 +160,7 @@ export default function Profile() {
           }}
         >
           <Ic name="logout" size={18} color={T.bad} />
-          Sign out
+          {t('worker.profile.menu.signOut')}
         </button>
       </div>
     </div>

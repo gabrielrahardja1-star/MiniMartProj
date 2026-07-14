@@ -1,0 +1,280 @@
+{
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "loading": "加载中…",
+    "signOut": "登出",
+    "language": "语言",
+    "edit": "编辑",
+    "delete": "删除",
+    "back": "返回",
+    "search": "搜索"
+  },
+  "status": {
+    "order": {
+      "pending": "待处理",
+      "fulfilled": "已完成",
+      "cancelled": "已取消"
+    },
+    "invoice": {
+      "pending_review": "待审核",
+      "approved": "已批准",
+      "rejected": "已拒绝"
+    },
+    "payment": {
+      "pending": "待处理",
+      "paid": "已支付",
+      "failed": "已失败",
+      "expired": "已过期"
+    }
+  },
+  "login": {
+    "title": "MiniMart",
+    "subtitle": "矿场物资商店",
+    "employeeId": "员工ID",
+    "employeeIdPlaceholder": "例如 W001",
+    "pin": "PIN码",
+    "signIn": "登录",
+    "signingIn": "正在登录…",
+    "errors": {
+      "missingId": "请输入您的员工ID",
+      "missingPin": "请输入4位PIN码",
+      "invalidCreds": "员工ID或PIN码无效"
+    }
+  },
+  "worker": {
+    "home": {
+      "title": "首页",
+      "welcome": "欢迎回来",
+      "quickActions": "快速操作",
+      "recentOrders": "最近订单",
+      "noOrders": "还没有订单"
+    },
+    "shop": {
+      "title": "商店",
+      "itemsAvailable": "件商品可用",
+      "search": "搜索商品",
+      "searchPlaceholder": "搜索商品",
+      "noResults": "未找到产品",
+      "noResultsFor": "\"{{query}}\" 无搜索结果",
+      "noCategoryResults": "此类别中没有商品",
+      "clearSearch": "清空搜索",
+      "failedToLoad": "加载商品失败",
+      "add": "添加",
+      "addToCart": "添加到购物车",
+      "quantity": "数量",
+      "price": "价格",
+      "stock": "库存",
+      "lowStock": "剩余 {{count}} 件",
+      "outOfStock": "缺货",
+      "cart": "购物车",
+      "cartEmpty": "购物车为空",
+      "total": "总计",
+      "checkout": "结账",
+      "selectPickup": "选择提货时间",
+      "pickupSlots": "可用提货时间",
+      "noon": "12:00 PM",
+      "evening": "5:00 PM",
+      "slotFull": "此时间段已满",
+      "confirmOrder": "确认订单",
+      "categories": {
+        "all": "全部",
+        "drinks": "饮料",
+        "snacks": "零食",
+        "meals": "餐饮",
+        "care": "个人护理",
+        "gear": "安全装备"
+      }
+    },
+    "orders": {
+      "title": "订单",
+      "myOrders": "我的订单",
+      "noOrders": "还没有订单",
+      "orderId": "订单号",
+      "date": "日期",
+      "items": "商品",
+      "total": "总计",
+      "status": "状态",
+      "paymentStatus": "支付状态",
+      "pickup": "提货",
+      "viewDetails": "查看详情",
+      "spending": "本月消费",
+      "totalSpend": "总消费",
+      "orderCount": "订单数"
+    },
+    "profile": {
+      "title": "个人资料",
+      "wallet": "钱包",
+      "walletBalance": "钱包余额",
+      "topUpHint": "在柜台进行充值",
+      "transactions": "交易",
+      "spending": "消费",
+      "totalSpending": "总消费",
+      "monthlySpending": "月消费",
+      "acrossOrder": "跨越1个订单",
+      "acrossOrders": "跨越 {{count}} 个订单",
+      "noTransactions": "还没有交易",
+      "menu": {
+        "notifications": "通知",
+        "notificationsSub": "已启用提货提醒",
+        "contactStore": "联系商店",
+        "contactStoreSub": "点击致电MiniMart",
+        "orderHistory": "订单历史",
+        "orderHistorySub": "查看所有过去的收据",
+        "sendFeedback": "发送反馈",
+        "signOut": "登出"
+      }
+    }
+  },
+  "admin": {
+    "dashboard": {
+      "title": "仪表板",
+      "overview": "概览",
+      "totalOrders": "总订单数",
+      "totalRevenue": "总收入",
+      "recentOrders": "最近订单",
+      "lowStockItems": "库存不足项目"
+    },
+    "orders": {
+      "title": "订单",
+      "allOrders": "所有订单",
+      "orderId": "订单号",
+      "worker": "员工",
+      "date": "日期",
+      "total": "总计",
+      "status": "状态",
+      "paymentStatus": "支付状态",
+      "actions": "操作",
+      "export": "导出为CSV",
+      "noOrders": "未找到订单"
+    },
+    "products": {
+      "title": "库存",
+      "allProducts": "所有产品",
+      "addProduct": "添加产品",
+      "editProduct": "编辑产品",
+      "sku": "SKU",
+      "name": "名称",
+      "price": "价格",
+      "stock": "库存",
+      "lowStock": "库存不足",
+      "active": "启用",
+      "actions": "操作",
+      "delete": "删除",
+      "edit": "编辑",
+      "noProducts": "未找到产品",
+      "createSuccess": "产品创建成功",
+      "updateSuccess": "产品更新成功",
+      "deleteSuccess": "产品删除成功",
+      "errors": {
+        "skuExists": "SKU已存在",
+        "fillAllFields": "请填写所有必需字段"
+      }
+    },
+    "workers": {
+      "title": "员工",
+      "allWorkers": "所有员工",
+      "addWorker": "添加员工",
+      "editWorker": "编辑员工",
+      "employeeId": "员工ID",
+      "name": "名称",
+      "role": "角色",
+      "status": "状态",
+      "active": "启用",
+      "inactive": "停用",
+      "actions": "操作",
+      "delete": "删除",
+      "edit": "编辑",
+      "topUpWallet": "钱包充值",
+      "noWorkers": "未找到员工",
+      "createSuccess": "员工创建成功",
+      "updateSuccess": "员工更新成功",
+      "deleteSuccess": "员工删除成功",
+      "roles": {
+        "admin": "管理员",
+        "cashier": "收银员",
+        "worker": "员工"
+      }
+    },
+    "invoices": {
+      "title": "发票",
+      "allInvoices": "所有发票",
+      "invoiceId": "发票号",
+      "date": "日期",
+      "status": "状态",
+      "total": "总计",
+      "actions": "操作",
+      "viewDetails": "查看详情",
+      "noInvoices": "未找到发票"
+    },
+    "reports": {
+      "title": "报告",
+      "generate": "生成报告",
+      "dateRange": "日期范围",
+      "type": "报告类型",
+      "sales": "销售报告",
+      "inventory": "库存报告",
+      "workers": "员工报告",
+      "export": "导出"
+    },
+    "walletLedger": {
+      "title": "钱包账户",
+      "worker": "员工",
+      "date": "日期",
+      "type": "类型",
+      "amount": "金额",
+      "balance": "余额",
+      "action": "操作",
+      "topUp": "充值",
+      "payment": "支付",
+      "noTransactions": "未找到交易"
+    },
+    "profile": {
+      "title": "个人资料",
+      "role": "管理员",
+      "menu": {
+        "reports": "报告和导出",
+        "invoices": "发票",
+        "manageWorkers": "管理员工",
+        "walletLedger": "钱包账户",
+        "suppliers": "供应商",
+        "settings": "设置",
+        "signOut": "登出"
+      }
+    }
+  },
+  "payment": {
+    "title": "支付",
+    "chooseMethod": "选择支付方式",
+    "qrPayment": "二维码支付",
+    "walletPayment": "钱包支付",
+    "amount": "金额",
+    "scanQr": "扫描二维码",
+    "scanHint": "使用您的手机银行应用或电子钱包进行扫描",
+    "checkStatus": "检查支付状态",
+    "paymentPending": "支付待处理",
+    "paymentSuccess": "支付成功",
+    "paymentFailed": "支付失败",
+    "walletBalance": "钱包余额",
+    "insufficientBalance": "钱包余额不足"
+  },
+  "wallet": {
+    "title": "钱包",
+    "balance": "余额",
+    "transactions": "交易",
+    "topUp": "充值",
+    "topUpAmount": "充值金额",
+    "topUpSuccess": "充值成功",
+    "noTransactions": "还没有交易",
+    "type": "类型",
+    "amount": "金额",
+    "date": "日期"
+  },
+  "modal": {
+    "confirm": "确认",
+    "delete": "删除",
+    "deleteConfirm": "您确定吗？此操作无法撤销。",
+    "error": "错误",
+    "success": "成功"
+  }
+}

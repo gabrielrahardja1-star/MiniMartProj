@@ -1,28 +1,31 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { T } from '../../utils/theme'
 import Ic from '../../components/Ic'
+import LanguageSwitcher from '../../components/LanguageSwitcher'
 import { useAuth } from '../../context/AuthContext'
 
 export default function AdminProfile() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const initials = (user?.name || 'A')
     .split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
   const menuItems = [
-    { ic: 'trend',   label: 'Reports & exports',  action: () => navigate('/admin/reports') },
-    { ic: 'doc',     label: 'Invoices',            action: () => navigate('/admin/invoices') },
-    { ic: 'profile', label: 'Manage workers',      action: () => navigate('/admin/workers') },
-    { ic: 'wallet',  label: 'Wallet ledger',       action: () => navigate('/admin/wallet-ledger') },
-    { ic: 'pkg',     label: 'Suppliers',           action: null },
+    { ic: 'trend',   label: t('admin.profile.menu.reports'),  action: () => navigate('/admin/reports') },
+    { ic: 'doc',     label: t('admin.profile.menu.invoices'),  action: () => navigate('/admin/invoices') },
+    { ic: 'profile', label: t('admin.profile.menu.manageWorkers'),  action: () => navigate('/admin/workers') },
+    { ic: 'wallet',  label: t('admin.profile.menu.walletLedger'),  action: () => navigate('/admin/wallet-ledger') },
+    { ic: 'pkg',     label: t('admin.profile.menu.suppliers'),  action: null },
   ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
       {/* Header */}
       <div style={{ padding: '8px 20px 16px' }}>
-        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Profile</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('admin.profile.title')}</div>
       </div>
 
       {/* User card */}
@@ -43,8 +46,13 @@ export default function AdminProfile() {
           <div style={{
             padding: '4px 10px', borderRadius: 999, background: T.brandSoft, color: T.brand,
             fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase',
-          }}>Admin</div>
+          }}>{t('admin.profile.role')}</div>
         </div>
+      </div>
+
+      {/* Language Switcher */}
+      <div style={{ padding: '0 20px 16px' }}>
+        <LanguageSwitcher />
       </div>
 
       {/* Menu */}
@@ -77,7 +85,7 @@ export default function AdminProfile() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
           <Ic name="logout" size={18} color={T.bad} />
-          Sign out
+          {t('admin.profile.menu.signOut')}
         </div>
       </div>
 
