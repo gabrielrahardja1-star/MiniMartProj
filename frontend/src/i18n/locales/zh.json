@@ -104,7 +104,8 @@
       "title": "订单",
       "myOrders": "我的订单",
       "noOrders": "还没有订单",
-      "orderId": "订单号",
+      "placeFirstOrder": "从商店下第一个订单",
+      "orderId": "订单",
       "date": "日期",
       "items": "商品",
       "total": "总计",
@@ -114,7 +115,15 @@
       "viewDetails": "查看详情",
       "spending": "本月消费",
       "totalSpend": "总消费",
-      "orderCount": "订单数"
+      "orderCount": "订单数",
+      "monthDeductions": "{{month}} 扣款",
+      "autoDeducted": "从工资中自动扣除",
+      "moreItems": "+ 还有 {{count}} 个商品",
+      "moreItemsPlural": "+ 还有 {{count}} 个商品",
+      "failedToLoad": "加载订单失败",
+      "statusPending": "待处理",
+      "statusPickedUp": "已提货",
+      "statusCancelled": "已取消"
     },
     "profile": {
       "title": "个人资料",

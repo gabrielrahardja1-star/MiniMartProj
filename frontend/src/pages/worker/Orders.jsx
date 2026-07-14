@@ -1,38 +1,40 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency, formatMonth, formatDate, formatSlotLabel } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
-const STATUS_META = {
-  pending:   { label: 'Pending',    color: T.brand, bg: '#DCE8F8' },
-  fulfilled: { label: 'Picked up', color: '#10B981', bg: '#D6F3E6' },
-  cancelled: { label: 'Cancelled', color: '#EF4444', bg: '#FCE0E0' },
-}
-
 export default function Orders() {
   const { openPass } = useOutletContext()
+  const { t, i18n } = useTranslation()
   const [orders, setOrders] = useState([])
   const [spending, setSpending] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const STATUS_META = {
+    pending:   { labelKey: 'worker.orders.statusPending',    color: T.brand, bg: '#DCE8F8' },
+    fulfilled: { labelKey: 'worker.orders.statusPickedUp', color: '#10B981', bg: '#D6F3E6' },
+    cancelled: { labelKey: 'worker.orders.statusCancelled', color: '#EF4444', bg: '#FCE0E0' },
+  }
+
   useEffect(() => {
     Promise.all([api.get('/orders/my'), api.get('/orders/my/spending')])
       .then(([o, s]) => { setOrders(o.data); setSpending(s.data) })
-      .catch(() => toast.error('Failed to load orders'))
+      .catch(() => toast.error(t('worker.orders.failedToLoad')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   return (
     <div style={{ background: T.bg, fontFamily: FONT, paddingBottom: 100 }}>
       {/* Header */}
       <div style={{ padding: '56px 20px 16px' }}>
-        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>My orders</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('worker.orders.myOrders')}</div>
         {spending && (
           <div style={{ color: T.ink3, fontSize: 13, marginTop: 2 }}>
-            {spending.order_count} orders · {formatMonth(spending.month)}
+            {spending.order_count} {t('worker.orders.orderCount')} · {formatMonth(spending.month)}
           </div>
         )}
       </div>
@@ -53,13 +55,13 @@ export default function Orders() {
             <div style={{ position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, opacity: 0.85, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 <Ic name="wallet" size={13} color="#fff" />
-                {formatMonth(spending.month)} deductions
+                {t('worker.orders.monthDeductions', { month: formatMonth(spending.month) })}
               </div>
               <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.5, marginTop: 4 }}>
                 {formatCurrency(spending.total_spend)}
               </div>
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>
-                {spending.order_count} {spending.order_count === 1 ? 'order' : 'orders'} · auto-deducted from payroll
+                {spending.order_count} {spending.order_count === 1 ? t('worker.orders.orderCount') : t('worker.orders.orderCount')}} · {t('worker.orders.autoDeducted')}
               </div>
             </div>
           </div>
@@ -78,14 +80,16 @@ export default function Orders() {
         ) : orders.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: T.ink3 }}>
             <Ic name="orders" size={40} color={T.line} />
-            <div style={{ marginTop: 12, fontSize: 16 }}>No orders yet</div>
-            <div style={{ marginTop: 6, fontSize: 13 }}>Place your first order from the shop</div>
+            <div style={{ marginTop: 12, fontSize: 16 }}>{t('worker.orders.noOrders')}</div>
+            <div style={{ marginTop: 6, fontSize: 13 }}>{t('worker.orders.placeFirstOrder')}</div>
           </div>
         ) : orders.map(order => {
-          const meta = STATUS_META[order.status] || { label: order.status, color: T.ink2, bg: T.surfaceAlt }
+          const statusMeta = STATUS_META[order.status] || { labelKey: 'worker.orders.status', color: T.ink2, bg: T.surfaceAlt }
+          const meta = { ...statusMeta, label: t(statusMeta.labelKey) }
           const dt = new Date(order.created_at)
-          const date = dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
-          const time = dt.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })
+          const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-AU'
+          const date = dt.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
+          const time = dt.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })
 
           return (
             <button
@@ -100,11 +104,11 @@ export default function Orders() {
               {/* Row 1: order id + status badge */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>Order #{order.id}</div>
+                  <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>{t('worker.orders.orderId')} #{order.id}</div>
                   <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{date} · {time}</div>
                   {order.pickup_date && order.pickup_slot && (
                     <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
-                      Pickup: {formatDate(order.pickup_date)} · {formatSlotLabel(order.pickup_slot)}
+                      {t('worker.orders.pickup')}: {formatDate(order.pickup_date)} · {formatSlotLabel(order.pickup_slot)}
                     </div>
                   )}
                 </div>
@@ -131,7 +135,7 @@ export default function Orders() {
                 ))}
                 {order.items.length > 2 && (
                   <div style={{ color: T.ink3, fontSize: 12 }}>
-                    + {order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
+                    {t(order.items.length - 2 > 1 ? 'worker.orders.moreItemsPlural' : 'worker.orders.moreItems', { count: order.items.length - 2 })}
                   </div>
                 )}
               </div>
@@ -142,7 +146,7 @@ export default function Orders() {
                 borderTop: `1px solid ${T.line}`,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
-                <span style={{ color: T.ink3, fontSize: 12 }}>Total</span>
+                <span style={{ color: T.ink3, fontSize: 12 }}>{t('worker.orders.total')}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ color: T.ink, fontSize: 16, fontWeight: 700 }}>{formatCurrency(order.total)}</span>
                   <Ic name="arrow" size={16} color={T.ink3} />

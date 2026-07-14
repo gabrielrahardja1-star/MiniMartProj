@@ -102,9 +102,10 @@
     },
     "orders": {
       "title": "Orders",
-      "myOrders": "My Orders",
+      "myOrders": "My orders",
       "noOrders": "No orders yet",
-      "orderId": "Order ID",
+      "placeFirstOrder": "Place your first order from the shop",
+      "orderId": "Order",
       "date": "Date",
       "items": "Items",
       "total": "Total",
@@ -114,7 +115,15 @@
       "viewDetails": "View Details",
       "spending": "This Month's Spending",
       "totalSpend": "Total Spend",
-      "orderCount": "Orders"
+      "orderCount": "Orders",
+      "monthDeductions": "{{month}} deductions",
+      "autoDeducted": "auto-deducted from payroll",
+      "moreItems": "+ {{count}} more item",
+      "moreItemsPlural": "+ {{count}} more items",
+      "failedToLoad": "Failed to load orders",
+      "statusPending": "Pending",
+      "statusPickedUp": "Picked up",
+      "statusCancelled": "Cancelled"
     },
     "profile": {
       "title": "Profile",
