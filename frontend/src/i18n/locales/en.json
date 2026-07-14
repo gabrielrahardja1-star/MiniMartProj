@@ -45,10 +45,24 @@
   "worker": {
     "home": {
       "title": "Home",
-      "welcome": "Welcome back",
-      "quickActions": "Quick Actions",
-      "recentOrders": "Recent Orders",
-      "noOrders": "No orders yet"
+      "greeting": {
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening"
+      },
+      "orderInProgress": "Order in progress",
+      "order": "Order",
+      "tapToViewPickupPass": "Tap to view pickup pass",
+      "walletBalance": "Wallet balance",
+      "topUpHint": "Top up in person at the counter",
+      "totalSpending": "Total spending",
+      "orders": "Orders",
+      "autoDeducted": "Auto-deducted from payroll",
+      "orderAgain": "Order again",
+      "inStockToday": "In stock today",
+      "leftInStock": "{{count}} left",
+      "noProductsAvailable": "No products available yet",
+      "failedToLoad": "Failed to load data"
     },
     "shop": {
       "title": "Shop",
