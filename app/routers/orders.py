@@ -3,11 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from app.db.session import get_db
 from app.models.order import Order, OrderItem
-from app.models.product import Product
 from app.models.worker import Worker
 from app.schemas.order import CreateOrderRequest, OrderOut, SpendingSummary, PickupSlotOut
 from app.core.deps import get_current_worker
-from app.core.pickup import validate_pickup_choice, SLOTS, is_slot_available
+from app.core.pickup import SLOTS, is_slot_available
+from app.services.order_service import create_order_for_worker
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -18,62 +18,13 @@ def create_order(
     db: Session = Depends(get_db),
     worker: Worker = Depends(get_current_worker),
 ):
-    if not body.items:
-        raise HTTPException(status_code=400, detail="Order must contain at least one item")
-
-    error = validate_pickup_choice(body.pickup_date, body.pickup_slot)
-    if error:
-        raise HTTPException(status_code=400, detail=error)
-
-    order = Order(
+    return create_order_for_worker(
+        db,
         worker_id=worker.id,
-        status="pending",
-        total=0.0,
+        items=body.items,
         pickup_date=body.pickup_date,
         pickup_slot=body.pickup_slot,
     )
-    db.add(order)
-    db.flush()
-
-    order_total = 0.0
-    for req in body.items:
-        if req.quantity <= 0:
-            raise HTTPException(status_code=400, detail=f"Quantity must be positive for product {req.product_id}")
-
-        # Lock the row to prevent race conditions on stock
-        product = (
-            db.query(Product)
-            .filter(Product.id == req.product_id, Product.is_active == True)
-            .with_for_update()
-            .first()
-        )
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product {req.product_id} not found")
-        if product.stock < req.quantity:
-            raise HTTPException(
-                status_code=409,
-                detail=f"'{product.name}' only has {product.stock} in stock, requested {req.quantity}",
-            )
-
-        unit_price = float(product.price)
-        subtotal = unit_price * req.quantity
-        order_total += subtotal
-
-        db.add(OrderItem(
-            order_id=order.id,
-            product_id=product.id,
-            quantity=req.quantity,
-            unit_price=unit_price,
-            subtotal=subtotal,
-        ))
-
-        # Decrement stock atomically
-        product.stock -= req.quantity
-
-    order.total = order_total
-    db.commit()
-    db.refresh(order)
-    return order
 
 
 @router.get("/pickup-slots", response_model=list[PickupSlotOut])

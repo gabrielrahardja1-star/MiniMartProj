@@ -9,6 +9,7 @@ class Order(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     worker_id: Mapped[int] = mapped_column(ForeignKey("workers.id"), nullable=False)
+    client_record_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, fulfilled, cancelled
     payment_status: Mapped[str] = mapped_column(String(20), default="unpaid")  # unpaid, pending, paid, failed, expired
     payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "qris" | "wallet"

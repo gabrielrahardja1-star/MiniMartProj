@@ -16,3 +16,13 @@ uploads/
 .DS_Store
 *.xlsx
 inventaris_toko.csv
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/keystore.properties
+android/*.keystore
+android/*.jks
+android/app/release/

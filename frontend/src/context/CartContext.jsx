@@ -20,7 +20,7 @@ export function CartProvider({ children }) {
           i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i
         )
       }
-      return [...prev, { product_id: product.id, name: product.name, price: product.price, quantity: 1 }]
+      return [...prev, { product_id: product.id, name: product.name, name_zh: product.name_zh, price: product.price, quantity: 1 }]
     })
   }, [])
 

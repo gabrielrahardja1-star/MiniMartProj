@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.config import settings
 import app.models  # noqa: ensure all models are registered with SQLAlchemy
-from app.routers import auth, invoices, products, orders, admin, payments, wallet
+from app.routers import auth, invoices, products, orders, admin, payments, wallet, mobile
 from app.tasks.monthly_topup import monthly_worker_topup
 
 app = FastAPI(
@@ -31,6 +31,7 @@ app.include_router(orders.router)
 app.include_router(admin.router)
 app.include_router(payments.router)
 app.include_router(wallet.router)
+app.include_router(mobile.router)
 
 # Initialize background scheduler for monthly top-ups
 scheduler = BackgroundScheduler()

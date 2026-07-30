@@ -4,6 +4,7 @@ import { useCart } from '../../context/CartContext'
 import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency } from '../../utils/format'
+import { getProductName } from '../../utils/product'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
@@ -65,7 +66,7 @@ function ProductThumb({ cat, imageUrl, size = 96 }) {
 
 export default function Shop() {
   useOutletContext()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { items: cartItems, add, updateQty } = useCart()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -96,7 +97,7 @@ export default function Shop() {
 
   const filtered = withCat.filter(p =>
     (cat === 'all' || p.cat === cat) &&
-    (q === '' || p.name.toLowerCase().includes(q.toLowerCase()))
+    (q === '' || p.name.toLowerCase().includes(q.toLowerCase()) || p.name_zh?.includes(q))
   )
 
   function handleAdd(p) {
@@ -235,7 +236,7 @@ export default function Shop() {
 
                 {/* Info */}
                 <div style={{ padding: '4px 12px 12px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.25 }}>{p.name}</div>
+                  <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.25 }}>{getProductName(p, i18n.language)}</div>
                   <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{p.unit}</div>
 
                   <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

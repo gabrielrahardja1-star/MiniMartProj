@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext'
 import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency, formatMonth } from '../../utils/format'
+import { getProductName } from '../../utils/product'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
@@ -271,7 +272,7 @@ export default function Home() {
                     <Ic name="box" size={24} color={T.ink3} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: T.ink, fontSize: 14, fontWeight: 600 }}>{p.name}</div>
+                    <div style={{ color: T.ink, fontSize: 14, fontWeight: 600 }}>{getProductName(p, i18n.language)}</div>
                     <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
                       {p.unit}
                       {lowStock && (

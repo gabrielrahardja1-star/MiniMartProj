@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useCart } from '../../context/CartContext'
 import { formatCurrency, formatSlotLabel } from '../../utils/format'
+import { getProductName } from '../../utils/product'
 import EmptyState from '../../components/EmptyState'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
 export default function Cart() {
+  const { i18n } = useTranslation()
   const { items, remove, updateQty, clear, total } = useCart()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -147,7 +150,7 @@ export default function Cart() {
             className="bg-white rounded-2xl shadow-sm overflow-hidden flex items-center border-l-4 border-amber-400"
           >
             <div className="flex-1 p-4">
-              <p className="font-semibold text-slate-800 leading-snug">{item.name}</p>
+              <p className="font-semibold text-slate-800 leading-snug">{getProductName(item, i18n.language)}</p>
               <p className="text-xs text-slate-400 mt-0.5">{formatCurrency(item.price)} each</p>
               <p className="text-amber-600 font-bold text-base mt-1">{formatCurrency(item.price * item.quantity)}</p>
             </div>
