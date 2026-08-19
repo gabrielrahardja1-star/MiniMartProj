@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.worker import Worker
 from app.schemas.auth import LoginRequest, TokenResponse, CurrentUser
-from app.core.security import verify_pin, hash_pin, create_access_token
+from app.core.security import verify_pin, create_access_token
 from app.core.deps import get_current_worker
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -27,7 +27,6 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             employee_id=body.employee_id,
             name=dummy["name"],
             role=dummy["role"],
-            pin_hash=hash_pin(dummy["pin"]),
         )
 
     worker = db.query(Worker).filter(
@@ -48,11 +47,6 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         employee_id=worker.employee_id,
         name=worker.name,
         role=worker.role,
-        # Lets the mobile app cache this and verify the PIN locally if a
-        # later login attempt happens while the tablet is offline. Safe to
-        # return here: a login response only ever reaches the worker who
-        # owns that PIN, never anyone else's.
-        pin_hash=worker.pin_hash,
     )
 
 

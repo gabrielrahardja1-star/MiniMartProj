@@ -28,10 +28,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Only a cashier ever touches this tablet, so there's no login
-        // screen - the app signs itself in with this fixed identity on
-        // launch (online, or offline via the cached PIN hash once it's
-        // logged in successfully at least once). Change these if the
-        // tablet should operate under a different account.
+        // screen - the app signs itself in with this fixed identity
+        // silently in the background whenever there's connectivity (see
+        // Repository.ensureLoggedIn()). The UI never waits on this: cached
+        // products/workers from the last successful sync show immediately
+        // regardless. Change these if the tablet should use a different
+        // account.
         buildConfigField("String", "TABLET_EMPLOYEE_ID", "\"ADMIN001\"")
         buildConfigField("String", "TABLET_PIN", "\"0000\"")
 
@@ -125,9 +127,6 @@ dependencies {
 
     // Encrypted token storage (Android Keystore-backed)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-
-    // Verifies the cached PIN hash locally when login is attempted offline
-    implementation("at.favre.lib:bcrypt:0.10.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

@@ -20,7 +20,10 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
     override suspend fun doWork(): Result {
         val repo = Repository.get(applicationContext)
-        if (!repo.tokenStore.isLoggedIn()) return Result.success()
+        // No login screen on this tablet - (re)authenticate silently with
+        // the built-in identity whenever there's a connection, rather than
+        // giving up if the app was never able to log in yet.
+        if (!repo.ensureLoggedIn()) return Result.retry()
 
         val ordersSynced = repo.syncPendingOrders()
         val salesSynced = repo.syncPendingSales()

@@ -1,6 +1,7 @@
 package com.minimart.field.data
 
 import android.content.Context
+import com.minimart.field.BuildConfig
 import com.minimart.field.data.local.AppDatabase
 import com.minimart.field.data.local.OrderEntity
 import com.minimart.field.data.local.OrderLineItem
@@ -51,36 +52,26 @@ class Repository(context: Context) {
             val response = api.login(LoginRequest(employeeId, pin))
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                tokenStore.saveSession(
-                    body.access_token, body.id, body.employee_id, body.name, body.role, body.pin_hash,
-                )
+                tokenStore.saveSession(body.access_token, body.id, body.employee_id, body.name, body.role)
                 LoginResult.Success(body.name)
             } else {
                 LoginResult.Error("Invalid employee ID or PIN")
             }
         } catch (e: Exception) {
-            // No signal - fall back to verifying the PIN against whatever
-            // hash this device cached the last time it logged in online.
-            offlineLogin(employeeId, pin)
-                ?: LoginResult.Error("Could not reach server, and no offline session matches this ID/PIN.")
+            LoginResult.Error("Could not reach server: ${e.message}")
         }
     }
 
-    /** Verifies [pin] locally against the bcrypt hash cached from this
-     * device's last successful online login for [employeeId]. Returns null
-     * (never a failure result) if there's simply nothing cached to check
-     * against, so the caller falls back to the network-error message. */
-    private fun offlineLogin(employeeId: String, pin: String): LoginResult? {
-        val cachedId = tokenStore.cachedEmployeeId() ?: return null
-        if (cachedId != employeeId) return null
-        val hash = tokenStore.cachedPinHash() ?: return null
-        val lastToken = tokenStore.cachedLastToken() ?: return null
-        val verified = at.favre.lib.crypto.bcrypt.BCrypt.verifyer().verify(pin.toCharArray(), hash).verified
-        if (!verified) return null
-
-        val name = tokenStore.workerName() ?: employeeId
-        tokenStore.saveSession(lastToken, tokenStore.workerId(), employeeId, name, tokenStore.role() ?: "worker")
-        return LoginResult.Success(name)
+    /** No one ever types credentials on this tablet - it's a single-purpose
+     * cashier device. Call this opportunistically (app start, sync worker
+     * runs) to silently (re)authenticate with the identity baked into the
+     * build whenever there's connectivity. Safe to call when already
+     * logged in or offline - just returns the current state either way,
+     * never blocks or surfaces an error to the UI. Cached products/workers
+     * from the last successful sync keep the app usable regardless. */
+    suspend fun ensureLoggedIn(): Boolean {
+        if (tokenStore.isLoggedIn()) return true
+        return login(BuildConfig.TABLET_EMPLOYEE_ID, BuildConfig.TABLET_PIN) is LoginResult.Success
     }
 
     /** Refreshes the local product cache. Call when online (e.g. dashboard
@@ -169,6 +160,7 @@ class Repository(context: Context) {
     /** Refreshes the cached product catalog and worker directory (with
      * balances) for the cashier screen. Call when online. */
     suspend fun refreshCashierMasterData(): Boolean {
+        if (!ensureLoggedIn()) return false
         return try {
             val response = api.cashierMasterData()
             if (response.isSuccessful && response.body() != null) {
@@ -221,6 +213,7 @@ class Repository(context: Context) {
         val dao = db.saleDao()
         val toSync = dao.getByStatus(SyncStatus.PENDING) + dao.getByStatus(SyncStatus.FAILED)
         if (toSync.isEmpty()) return true
+        if (!ensureLoggedIn()) return false
 
         val now = System.currentTimeMillis()
         toSync.forEach { dao.markAttempt(it.clientRecordId, SyncStatus.UPLOADING, now) }

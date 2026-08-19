@@ -13,7 +13,6 @@ class TokenResponse(BaseModel):
     employee_id: str
     name: str
     role: str
-    pin_hash: str | None = None
 
 
 class CurrentUser(BaseModel):
