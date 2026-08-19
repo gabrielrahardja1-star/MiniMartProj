@@ -42,6 +42,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -68,14 +71,17 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
     val saleSuccessMessage by viewModel.saleSuccessMessage.collectAsState()
     val lastSyncEpochMs by viewModel.lastSyncEpochMs.collectAsState()
 
+    var lang by remember { mutableStateOf(Lang.EN) }
+    val s = strings(lang)
+
     saleSuccessMessage?.let { message ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissSaleSuccess(); onSaleCompleted() },
             confirmButton = {
-                TextButton(onClick = { viewModel.dismissSaleSuccess(); onSaleCompleted() }) { Text("OK") }
+                TextButton(onClick = { viewModel.dismissSaleSuccess(); onSaleCompleted() }) { Text(s.ok) }
             },
             icon = { Text("✓", color = MiniMartColors.good, style = MaterialTheme.typography.headlineMedium) },
-            title = { Text("Sale complete") },
+            title = { Text(s.saleComplete) },
             text = { Text(message) },
         )
     }
@@ -83,8 +89,8 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
     saleError?.let { message ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissSaleError() },
-            confirmButton = { TextButton(onClick = { viewModel.dismissSaleError() }) { Text("OK") } },
-            title = { Text("Sale failed", color = MiniMartColors.bad) },
+            confirmButton = { TextButton(onClick = { viewModel.dismissSaleError() }) { Text(s.ok) } },
+            title = { Text(s.saleFailed, color = MiniMartColors.bad) },
             text = { Text(message) },
         )
     }
@@ -93,7 +99,23 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
         containerColor = MiniMartColors.bg,
         topBar = {
             TopAppBar(
-                title = { Text("Cashier — New Sale", fontWeight = FontWeight.SemiBold) },
+                title = { Text(s.title, fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(999.dp),
+                        onClick = { lang = lang.next() },
+                        modifier = Modifier.padding(end = 12.dp),
+                    ) {
+                        Text(
+                            lang.code,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MiniMartColors.brand,
                     titleContentColor = Color.White,
@@ -103,13 +125,14 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (lastSyncEpochMs == null) {
-                StaleDataBanner()
+                StaleDataBanner(text = s.staleBanner)
             }
 
             Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(12.dp))
                 if (worker == null) {
                     WorkerLookup(
+                        strings = s,
                         employeeIdInput = employeeIdInput,
                         lookupError = lookupError,
                         onInputChange = { viewModel.setEmployeeIdInput(it) },
@@ -117,15 +140,17 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
                     )
                 } else {
                     val w = worker!!
-                    WorkerCard(name = w.name, employeeId = w.employeeId, balance = w.balance, onChangeWorker = { viewModel.clearWorker() })
+                    WorkerCard(
+                        strings = s,
+                        name = w.name,
+                        employeeId = w.employeeId,
+                        balance = w.balance,
+                        onChangeWorker = { viewModel.clearWorker() },
+                    )
                     Spacer(Modifier.height(12.dp))
 
                     if (products.isEmpty()) {
-                        Text(
-                            "No products cached yet. Connect to the internet once to download the catalog.",
-                            color = MiniMartColors.ink2,
-                            modifier = Modifier.padding(16.dp),
-                        )
+                        Text(s.noProductsCached, color = MiniMartColors.ink2, modifier = Modifier.padding(16.dp))
                     }
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 170.dp),
@@ -135,6 +160,8 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
                     ) {
                         items(products) { product ->
                             ProductCard(
+                                strings = s,
+                                lang = lang,
                                 product = product,
                                 quantity = cart[product.id] ?: 0,
                                 onQuantityChange = { viewModel.setQuantity(product.id, it) },
@@ -147,6 +174,7 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
 
             if (worker != null) {
                 ConfirmSaleBar(
+                    strings = s,
                     total = viewModel.cartTotal(),
                     itemCount = cart.values.sum(),
                     enabled = cart.isNotEmpty() && viewModel.cartTotal() <= worker!!.balance,
@@ -158,32 +186,28 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
 }
 
 @Composable
-private fun StaleDataBanner() {
+private fun StaleDataBanner(text: String) {
     Surface(color = MiniMartColors.warnSoft) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Text(
-                "⚠ Using built-in starter data — this tablet has never synced with the server. " +
-                    "Balances shown may be out of date. Connect to the internet to get live data.",
-                color = MiniMartColors.warn,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text(text, color = MiniMartColors.warn, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable
 private fun WorkerLookup(
+    strings: CashierStrings,
     employeeIdInput: String,
     lookupError: String?,
     onInputChange: (String) -> Unit,
     onLookup: () -> Unit,
 ) {
-    Text("Enter worker ID", style = MaterialTheme.typography.titleMedium, color = MiniMartColors.ink)
+    Text(strings.enterWorkerId, style = MaterialTheme.typography.titleMedium, color = MiniMartColors.ink)
     Spacer(Modifier.height(12.dp))
     OutlinedTextField(
         value = employeeIdInput,
         onValueChange = onInputChange,
-        label = { Text("Employee ID") },
+        label = { Text(strings.employeeId) },
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
@@ -205,12 +229,12 @@ private fun WorkerLookup(
         colors = ButtonDefaults.buttonColors(containerColor = MiniMartColors.brand),
         modifier = Modifier.fillMaxWidth().height(52.dp),
     ) {
-        Text("Look Up Worker", fontWeight = FontWeight.SemiBold)
+        Text(strings.lookUpWorker, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun WorkerCard(name: String, employeeId: String, balance: Double, onChangeWorker: () -> Unit) {
+private fun WorkerCard(strings: CashierStrings, name: String, employeeId: String, balance: Double, onChangeWorker: () -> Unit) {
     Card(
         shape = CardShape,
         colors = CardDefaults.cardColors(containerColor = MiniMartColors.surface),
@@ -235,7 +259,7 @@ private fun WorkerCard(name: String, employeeId: String, balance: Double, onChan
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium, color = MiniMartColors.ink)
-                Text("ID: $employeeId", style = MaterialTheme.typography.bodySmall, color = MiniMartColors.ink3)
+                Text("${strings.idLabel}: $employeeId", style = MaterialTheme.typography.bodySmall, color = MiniMartColors.ink3)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "₱${"%,.2f".format(balance)}",
@@ -245,7 +269,7 @@ private fun WorkerCard(name: String, employeeId: String, balance: Double, onChan
                 )
             }
             TextButton(onClick = onChangeWorker) {
-                Text("Change", color = MiniMartColors.brand, fontWeight = FontWeight.SemiBold)
+                Text(strings.change, color = MiniMartColors.brand, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -255,7 +279,13 @@ private fun WorkerCard(name: String, employeeId: String, balance: Double, onChan
  * stock warning overlaid on it, name/unit below, price and an Add/stepper
  * control on the same row. Same shape language, same badge colors. */
 @Composable
-private fun ProductCard(product: ProductEntity, quantity: Int, onQuantityChange: (Int) -> Unit) {
+private fun ProductCard(
+    strings: CashierStrings,
+    lang: Lang,
+    product: ProductEntity,
+    quantity: Int,
+    onQuantityChange: (Int) -> Unit,
+) {
     val lowStock = product.stock in 1..5
     val outOfStock = product.stock <= 0
     Column(
@@ -269,20 +299,25 @@ private fun ProductCard(product: ProductEntity, quantity: Int, onQuantityChange:
         Box(modifier = Modifier.fillMaxWidth()) {
             ProductImage(imageUrl = product.imageUrl)
             if (outOfStock) {
-                StockBadge("Out of stock", MiniMartColors.badSoft, MiniMartColors.bad, Modifier.align(Alignment.TopEnd))
+                StockBadge(strings.outOfStock, MiniMartColors.badSoft, MiniMartColors.bad, Modifier.align(Alignment.TopEnd))
             } else if (lowStock) {
-                StockBadge("${product.stock} left", MiniMartColors.warnSoft, MiniMartColors.warn, Modifier.align(Alignment.TopEnd))
+                StockBadge("${product.stock} ${strings.left}", MiniMartColors.warnSoft, MiniMartColors.warn, Modifier.align(Alignment.TopEnd))
             }
         }
         Spacer(Modifier.height(8.dp))
+        // Chinese-speaking staff get the Chinese name as the prominent
+        // line (when the product has one) with the Indonesian name as a
+        // subtitle; everyone else sees it the other way around.
+        val primaryName = if (lang == Lang.ZH) product.nameZh?.takeIf { it.isNotBlank() } ?: product.name else product.name
+        val secondaryName = if (lang == Lang.ZH) product.name.takeIf { primaryName != it } else product.nameZh?.takeIf { it.isNotBlank() }
         Text(
-            product.name,
+            primaryName,
             color = MiniMartColors.ink,
             fontWeight = FontWeight.SemiBold,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 2,
         )
-        product.nameZh?.takeIf { it.isNotBlank() }?.let {
+        secondaryName?.let {
             Text(it, color = MiniMartColors.ink3, style = MaterialTheme.typography.bodySmall)
         }
         Text(product.unit, color = MiniMartColors.ink3, style = MaterialTheme.typography.bodySmall)
@@ -309,7 +344,7 @@ private fun ProductCard(product: ProductEntity, quantity: Int, onQuantityChange:
                     enabled = !outOfStock,
                 ) {
                     Text(
-                        "Add",
+                        strings.add,
                         color = MiniMartColors.brand,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelLarge,
@@ -393,7 +428,7 @@ private fun QuantityStepper(quantity: Int, outOfStock: Boolean, stock: Int, onQu
 }
 
 @Composable
-private fun ConfirmSaleBar(total: Double, itemCount: Int, enabled: Boolean, onConfirm: () -> Unit) {
+private fun ConfirmSaleBar(strings: CashierStrings, total: Double, itemCount: Int, enabled: Boolean, onConfirm: () -> Unit) {
     Surface(color = MiniMartColors.surface, shadowElevation = 8.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             HorizontalDivider(color = MiniMartColors.line)
@@ -402,7 +437,7 @@ private fun ConfirmSaleBar(total: Double, itemCount: Int, enabled: Boolean, onCo
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Total", style = MaterialTheme.typography.titleMedium, color = MiniMartColors.ink2)
+                Text(strings.total, style = MaterialTheme.typography.titleMedium, color = MiniMartColors.ink2)
                 Text(
                     "₱${"%,.2f".format(total)}",
                     style = MaterialTheme.typography.titleLarge,
@@ -421,7 +456,7 @@ private fun ConfirmSaleBar(total: Double, itemCount: Int, enabled: Boolean, onCo
                 ),
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) {
-                Text("Confirm Sale ($itemCount items)", fontWeight = FontWeight.SemiBold)
+                Text("${strings.confirmSale} ($itemCount)", fontWeight = FontWeight.SemiBold)
             }
         }
     }
