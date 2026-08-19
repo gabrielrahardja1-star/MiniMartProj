@@ -23,7 +23,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -35,9 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -277,7 +273,7 @@ private fun ProductRow(product: ProductEntity, quantity: Int, onQuantityChange: 
                     enabled = quantity > 0,
                     colors = IconButtonDefaults.iconButtonColors(contentColor = MiniMartColors.brand),
                 ) {
-                    Icon(Icons.Filled.Remove, contentDescription = "Decrease quantity")
+                    Text("−", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 Text(
                     quantity.toString(),
@@ -291,7 +287,7 @@ private fun ProductRow(product: ProductEntity, quantity: Int, onQuantityChange: 
                     enabled = !outOfStock && quantity < product.stock,
                     colors = IconButtonDefaults.iconButtonColors(contentColor = MiniMartColors.brand),
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Increase quantity")
+                    Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
             }
         }
