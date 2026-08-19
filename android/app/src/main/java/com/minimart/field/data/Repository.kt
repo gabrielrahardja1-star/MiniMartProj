@@ -83,8 +83,6 @@ class Repository(context: Context) {
         return LoginResult.Success(name)
     }
 
-    fun logout() = tokenStore.logout()
-
     /** Refreshes the local product cache. Call when online (e.g. dashboard
      * open, pull-to-refresh, or post-sync). Safe no-op failure when offline. */
     suspend fun refreshMasterData(): Boolean {

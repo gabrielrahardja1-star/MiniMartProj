@@ -27,6 +27,14 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // Only a cashier ever touches this tablet, so there's no login
+        // screen - the app signs itself in with this fixed identity on
+        // launch (online, or offline via the cached PIN hash once it's
+        // logged in successfully at least once). Change these if the
+        // tablet should operate under a different account.
+        buildConfigField("String", "TABLET_EMPLOYEE_ID", "\"ADMIN001\"")
+        buildConfigField("String", "TABLET_PIN", "\"0000\"")
+
         // Base URL is build-type specific (see below). Keeping it out of
         // source lets office staff repoint the app at a new server without
         // a code change — just a different build.

@@ -8,11 +8,11 @@ import androidx.security.crypto.MasterKey
  * Wraps EncryptedSharedPreferences (Android Keystore-backed) so the JWT and
  * logged-in worker identity are never stored in plaintext on disk.
  *
- * Keeps two things apart: the *active session* (KEY_TOKEN - cleared on
- * logout) and the *offline-login cache* (employee id, bcrypt pin hash, last
- * known token/name/role/worker id - survives logout). The cache is what lets
- * a worker log back in on this device with just their real PIN when there's
- * no signal, verified locally instead of against the server.
+ * Keeps two things apart: the *active session* (KEY_TOKEN) and the
+ * *offline-login cache* (employee id, bcrypt pin hash, last known
+ * token/name/role/worker id). The cache is what lets the tablet's built-in
+ * identity sign itself back in without a network connection - see
+ * Repository.login()'s offline fallback.
  */
 class TokenStore(context: Context) {
 

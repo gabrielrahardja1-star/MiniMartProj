@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,7 +18,6 @@ fun DashboardScreen(
     onNewOrder: () -> Unit,
     onViewOrders: () -> Unit,
     onCashierMode: () -> Unit,
-    onLogout: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -34,7 +32,5 @@ fun DashboardScreen(
             androidx.compose.foundation.layout.Spacer(Modifier.padding(8.dp))
             Button(onClick = onCashierMode, modifier = Modifier.fillMaxWidth()) { Text("Cashier Mode") }
         }
-        androidx.compose.foundation.layout.Spacer(Modifier.padding(24.dp))
-        OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Logout") }
     }
 }

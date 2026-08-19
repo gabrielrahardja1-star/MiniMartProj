@@ -57,12 +57,6 @@ private fun MiniMartNavHost() {
                 onNewOrder = { navController.navigate(Routes.NEW_ORDER) },
                 onViewOrders = { navController.navigate(Routes.ORDERS) },
                 onCashierMode = { navController.navigate(Routes.CASHIER) },
-                onLogout = {
-                    repo.logout()
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
             )
         }
         composable(Routes.NEW_ORDER) {
