@@ -11,6 +11,7 @@ data class TokenResponse(
     val employee_id: String,
     val name: String,
     val role: String,
+    val pin_hash: String? = null,
 )
 
 data class ProductDto(

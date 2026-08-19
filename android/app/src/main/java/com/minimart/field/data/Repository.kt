@@ -51,17 +51,39 @@ class Repository(context: Context) {
             val response = api.login(LoginRequest(employeeId, pin))
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                tokenStore.saveSession(body.access_token, body.id, body.employee_id, body.name, body.role)
+                tokenStore.saveSession(
+                    body.access_token, body.id, body.employee_id, body.name, body.role, body.pin_hash,
+                )
                 LoginResult.Success(body.name)
             } else {
                 LoginResult.Error("Invalid employee ID or PIN")
             }
         } catch (e: Exception) {
-            LoginResult.Error("Could not reach server: ${e.message}")
+            // No signal - fall back to verifying the PIN against whatever
+            // hash this device cached the last time it logged in online.
+            offlineLogin(employeeId, pin)
+                ?: LoginResult.Error("Could not reach server, and no offline session matches this ID/PIN.")
         }
     }
 
-    fun logout() = tokenStore.clear()
+    /** Verifies [pin] locally against the bcrypt hash cached from this
+     * device's last successful online login for [employeeId]. Returns null
+     * (never a failure result) if there's simply nothing cached to check
+     * against, so the caller falls back to the network-error message. */
+    private fun offlineLogin(employeeId: String, pin: String): LoginResult? {
+        val cachedId = tokenStore.cachedEmployeeId() ?: return null
+        if (cachedId != employeeId) return null
+        val hash = tokenStore.cachedPinHash() ?: return null
+        val lastToken = tokenStore.cachedLastToken() ?: return null
+        val verified = at.favre.lib.crypto.bcrypt.BCrypt.verifyer().verify(pin.toCharArray(), hash).verified
+        if (!verified) return null
+
+        val name = tokenStore.workerName() ?: employeeId
+        tokenStore.saveSession(lastToken, tokenStore.workerId(), employeeId, name, tokenStore.role() ?: "worker")
+        return LoginResult.Success(name)
+    }
+
+    fun logout() = tokenStore.logout()
 
     /** Refreshes the local product cache. Call when online (e.g. dashboard
      * open, pull-to-refresh, or post-sync). Safe no-op failure when offline. */

@@ -49,7 +49,7 @@ android {
             // Debug builds only: allows HTTP (cleartext) so the app can be
             // tested against a local/dev backend that isn't on HTTPS yet.
             // NEVER enable this for release builds against production.
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://76.13.19.246:8000/\"")
             buildConfigField("boolean", "CLEARTEXT_ALLOWED", "true")
             manifestPlaceholders["cleartextAllowed"] = "true"
             applicationIdSuffix = ".debug"
@@ -117,6 +117,9 @@ dependencies {
 
     // Encrypted token storage (Android Keystore-backed)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Verifies the cached PIN hash locally when login is attempted offline
+    implementation("at.favre.lib:bcrypt:0.10.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
