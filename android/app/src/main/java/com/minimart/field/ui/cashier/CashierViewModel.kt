@@ -59,7 +59,9 @@ class CashierViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun lookupWorker() {
-        val id = _employeeIdInput.value.trim()
+        // Employee IDs are stored uppercase (e.g. "W001") - normalize
+        // whatever the cashier typed so case doesn't matter.
+        val id = _employeeIdInput.value.trim().uppercase()
         if (id.isEmpty()) return
         viewModelScope.launch {
             val worker = repo.findWorker(id)
