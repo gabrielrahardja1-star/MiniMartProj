@@ -6,14 +6,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -124,16 +127,21 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
                             modifier = Modifier.padding(16.dp),
                         )
                     }
-                    LazyColumn(modifier = Modifier.weight(1f)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 170.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
                         items(products) { product ->
-                            ProductRow(
+                            ProductCard(
                                 product = product,
                                 quantity = cart[product.id] ?: 0,
                                 onQuantityChange = { viewModel.setQuantity(product.id, it) },
                             )
                         }
-                        item { Spacer(Modifier.height(8.dp)) }
                     }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
 
@@ -243,14 +251,88 @@ private fun WorkerCard(name: String, employeeId: String, balance: Double, onChan
     }
 }
 
+/** Mirrors the web app's Shop.jsx product card: big image up top with the
+ * stock warning overlaid on it, name/unit below, price and an Add/stepper
+ * control on the same row. Same shape language, same badge colors. */
 @Composable
-private fun ProductThumbnail(imageUrl: String?) {
+private fun ProductCard(product: ProductEntity, quantity: Int, onQuantityChange: (Int) -> Unit) {
+    val lowStock = product.stock in 1..5
+    val outOfStock = product.stock <= 0
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CardShape)
+            .background(MiniMartColors.surface)
+            .border(1.dp, MiniMartColors.line, CardShape)
+            .padding(12.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            ProductImage(imageUrl = product.imageUrl)
+            if (outOfStock) {
+                StockBadge("Out of stock", MiniMartColors.badSoft, MiniMartColors.bad, Modifier.align(Alignment.TopEnd))
+            } else if (lowStock) {
+                StockBadge("${product.stock} left", MiniMartColors.warnSoft, MiniMartColors.warn, Modifier.align(Alignment.TopEnd))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            product.name,
+            color = MiniMartColors.ink,
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+        )
+        product.nameZh?.takeIf { it.isNotBlank() }?.let {
+            Text(it, color = MiniMartColors.ink3, style = MaterialTheme.typography.bodySmall)
+        }
+        Text(product.unit, color = MiniMartColors.ink3, style = MaterialTheme.typography.bodySmall)
+
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "₱${"%,.0f".format(product.price)}",
+                color = MiniMartColors.ink,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (quantity > 0) {
+                QuantityStepper(quantity, outOfStock, product.stock, onQuantityChange)
+            } else {
+                Surface(
+                    color = MiniMartColors.brandSoft,
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { if (!outOfStock) onQuantityChange(1) },
+                    enabled = !outOfStock,
+                ) {
+                    Text(
+                        "Add",
+                        color = MiniMartColors.brand,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductImage(imageUrl: String?) {
     Box(
-        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(MiniMartColors.surfaceAlt),
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MiniMartColors.surfaceAlt),
         contentAlignment = Alignment.Center,
     ) {
         if (imageUrl.isNullOrBlank()) {
-            Text("📦", style = MaterialTheme.typography.titleMedium)
+            Text("📦", style = MaterialTheme.typography.headlineMedium)
         } else {
             // image_url from the server is relative (e.g. /uploads/products/x.png);
             // resolve it against the same host the app talks to for everything else.
@@ -258,87 +340,55 @@ private fun ProductThumbnail(imageUrl: String?) {
             AsyncImage(
                 model = fullUrl,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(10.dp),
             )
         }
     }
 }
 
 @Composable
-private fun ProductRow(product: ProductEntity, quantity: Int, onQuantityChange: (Int) -> Unit) {
-    val lowStock = product.stock in 1..9
-    val outOfStock = product.stock <= 0
-    Card(
-        shape = CardShape,
-        colors = CardDefaults.cardColors(containerColor = MiniMartColors.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ProductThumbnail(imageUrl = product.imageUrl)
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(product.name, color = MiniMartColors.ink, fontWeight = FontWeight.Medium)
-                product.nameZh?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = MiniMartColors.ink3, style = MaterialTheme.typography.bodySmall)
-                }
-                Spacer(Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "₱${"%,.0f".format(product.price)} / ${product.unit}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MiniMartColors.ink2,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    StockChip(stock = product.stock, lowStock = lowStock, outOfStock = outOfStock)
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = { onQuantityChange(quantity - 1) },
-                    enabled = quantity > 0,
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = MiniMartColors.brand),
-                ) {
-                    Text("−", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
-                Text(
-                    quantity.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MiniMartColors.ink,
-                    modifier = Modifier.width(28.dp),
-                    textAlign = TextAlign.Center,
-                )
-                IconButton(
-                    onClick = { onQuantityChange(quantity + 1) },
-                    enabled = !outOfStock && quantity < product.stock,
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = MiniMartColors.brand),
-                ) {
-                    Text("+", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
+private fun StockBadge(label: String, bg: Color, fg: Color, modifier: Modifier = Modifier) {
+    Surface(color = bg, shape = RoundedCornerShape(999.dp), modifier = modifier.padding(6.dp)) {
+        Text(
+            label,
+            color = fg,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
     }
 }
 
 @Composable
-private fun StockChip(stock: Int, lowStock: Boolean, outOfStock: Boolean) {
-    val (bg, fg, label) = when {
-        outOfStock -> Triple(MiniMartColors.badSoft, MiniMartColors.bad, "Out of stock")
-        lowStock -> Triple(MiniMartColors.warnSoft, MiniMartColors.warn, "$stock left")
-        else -> Triple(MiniMartColors.surfaceAlt, MiniMartColors.ink3, "stock $stock")
-    }
-    Surface(color = bg, shape = RoundedCornerShape(6.dp)) {
+private fun QuantityStepper(quantity: Int, outOfStock: Boolean, stock: Int, onQuantityChange: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(MiniMartColors.brand),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(
+            onClick = { onQuantityChange(quantity - 1) },
+            colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
+            modifier = Modifier.size(32.dp),
+        ) {
+            Text("−", fontWeight = FontWeight.Bold)
+        }
         Text(
-            label,
-            color = fg,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            quantity.toString(),
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(20.dp),
+            textAlign = TextAlign.Center,
         )
+        IconButton(
+            onClick = { onQuantityChange(quantity + 1) },
+            enabled = !outOfStock && quantity < stock,
+            colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White, disabledContentColor = Color.White.copy(alpha = 0.4f)),
+            modifier = Modifier.size(32.dp),
+        ) {
+            Text("+", fontWeight = FontWeight.Bold)
+        }
     }
 }
 
