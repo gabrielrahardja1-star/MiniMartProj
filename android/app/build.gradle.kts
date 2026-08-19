@@ -128,6 +128,9 @@ dependencies {
     // Encrypted token storage (Android Keystore-backed)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Product photos in the cashier catalog
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

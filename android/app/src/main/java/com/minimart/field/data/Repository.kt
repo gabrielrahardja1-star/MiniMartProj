@@ -32,8 +32,8 @@ sealed class SaleResult {
 }
 
 private data class SeedProduct(
-    val id: Int, val name: String, val sku: String, val price: Double,
-    val unit: String, val stock: Int, val category: String?,
+    val id: Int, val name: String, val name_zh: String?, val sku: String, val price: Double,
+    val unit: String, val stock: Int, val category: String?, val image_url: String?,
 )
 private data class SeedWorker(val employee_id: String, val name: String, val balance: Double)
 private data class SeedData(val products: List<SeedProduct>, val workers: List<SeedWorker>)
@@ -100,7 +100,9 @@ class Repository(context: Context) {
             val seed = Gson().fromJson(json, SeedData::class.java)
             if (needsProducts) {
                 db.productDao().upsertAll(
-                    seed.products.map { ProductEntity(it.id, it.name, it.sku, it.price, it.stock, it.unit, it.category) }
+                    seed.products.map {
+                        ProductEntity(it.id, it.name, it.name_zh, it.sku, it.price, it.stock, it.unit, it.category, it.image_url)
+                    }
                 )
             }
             if (needsWorkers) {
@@ -119,7 +121,7 @@ class Repository(context: Context) {
             val response = api.masterData()
             if (response.isSuccessful && response.body() != null) {
                 val products = response.body()!!.products.map {
-                    ProductEntity(it.id, it.name, it.sku, it.price, it.stock, it.unit, it.category)
+                    ProductEntity(it.id, it.name, it.name_zh, it.sku, it.price, it.stock, it.unit, it.category, it.image_url)
                 }
                 db.productDao().clear()
                 db.productDao().upsertAll(products)
@@ -204,7 +206,7 @@ class Repository(context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 val products = body.products.map {
-                    ProductEntity(it.id, it.name, it.sku, it.price, it.stock, it.unit, it.category)
+                    ProductEntity(it.id, it.name, it.name_zh, it.sku, it.price, it.stock, it.unit, it.category, it.image_url)
                 }
                 val workers = body.workers.map { WorkerEntity(it.employee_id, it.name, it.balance) }
                 db.productDao().clear()

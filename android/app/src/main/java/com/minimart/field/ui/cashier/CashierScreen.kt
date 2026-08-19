@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,6 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.minimart.field.BuildConfig
 import com.minimart.field.data.local.ProductEntity
 import com.minimart.field.ui.theme.MiniMartColors
 
@@ -240,6 +244,28 @@ private fun WorkerCard(name: String, employeeId: String, balance: Double, onChan
 }
 
 @Composable
+private fun ProductThumbnail(imageUrl: String?) {
+    Box(
+        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(MiniMartColors.surfaceAlt),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (imageUrl.isNullOrBlank()) {
+            Text("📦", style = MaterialTheme.typography.titleMedium)
+        } else {
+            // image_url from the server is relative (e.g. /uploads/products/x.png);
+            // resolve it against the same host the app talks to for everything else.
+            val fullUrl = BuildConfig.API_BASE_URL.trimEnd('/') + imageUrl
+            AsyncImage(
+                model = fullUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProductRow(product: ProductEntity, quantity: Int, onQuantityChange: (Int) -> Unit) {
     val lowStock = product.stock in 1..9
     val outOfStock = product.stock <= 0
@@ -254,8 +280,13 @@ private fun ProductRow(product: ProductEntity, quantity: Int, onQuantityChange: 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            ProductThumbnail(imageUrl = product.imageUrl)
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(product.name, color = MiniMartColors.ink, fontWeight = FontWeight.Medium)
+                product.nameZh?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, color = MiniMartColors.ink3, style = MaterialTheme.typography.bodySmall)
+                }
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

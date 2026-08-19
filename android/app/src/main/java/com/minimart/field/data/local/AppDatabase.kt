@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [ProductEntity::class, OrderEntity::class, WorkerEntity::class, SaleEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(OrderConverters::class)

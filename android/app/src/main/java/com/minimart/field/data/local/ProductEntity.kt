@@ -9,9 +9,11 @@ import androidx.room.PrimaryKey
 data class ProductEntity(
     @PrimaryKey val id: Int,
     val name: String,
+    val nameZh: String?,
     val sku: String,
     val price: Double,
     val stock: Int,
     val unit: String,
     val category: String?,
+    val imageUrl: String?,
 )
