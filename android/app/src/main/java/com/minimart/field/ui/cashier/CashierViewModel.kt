@@ -18,13 +18,23 @@ class CashierViewModel(application: Application) : AndroidViewModel(application)
     private val repo = Repository.get(application)
 
     init {
-        // Picks up the worker directory (with balances) if online; the cached
-        // copy from the last refresh is used otherwise.
-        viewModelScope.launch { repo.refreshCashierMasterData() }
+        viewModelScope.launch {
+            // Bundled starter data first (instant, no network) so a
+            // brand-new tablet isn't staring at an empty screen, then try
+            // to replace it with a real sync if there's connectivity.
+            repo.seedIfEmpty()
+            repo.refreshCashierMasterData()
+            _lastSyncEpochMs.value = repo.syncMeta.lastCashierSyncEpochMs()
+        }
     }
 
     val products: StateFlow<List<ProductEntity>> =
         repo.products.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _lastSyncEpochMs = MutableStateFlow(repo.syncMeta.lastCashierSyncEpochMs())
+    /** Null means this device is still running on the bundled starter data -
+     * worker balances shown may not reflect reality until a real sync. */
+    val lastSyncEpochMs: StateFlow<Long?> = _lastSyncEpochMs
 
     private val _employeeIdInput = MutableStateFlow("")
     val employeeIdInput: StateFlow<String> = _employeeIdInput

@@ -1,6 +1,7 @@
 package com.minimart.field.data
 
 import android.content.Context
+import com.google.gson.Gson
 import com.minimart.field.BuildConfig
 import com.minimart.field.data.local.AppDatabase
 import com.minimart.field.data.local.OrderEntity
@@ -30,6 +31,13 @@ sealed class SaleResult {
     data class Error(val message: String) : SaleResult()
 }
 
+private data class SeedProduct(
+    val id: Int, val name: String, val sku: String, val price: Double,
+    val unit: String, val stock: Int, val category: String?,
+)
+private data class SeedWorker(val employee_id: String, val name: String, val balance: Double)
+private data class SeedData(val products: List<SeedProduct>, val workers: List<SeedWorker>)
+
 /**
  * Single entry point for the UI layer. Owns the local Room database and the
  * Retrofit client, and is the only place that talks to the network -
@@ -38,9 +46,11 @@ sealed class SaleResult {
  */
 class Repository(context: Context) {
     val tokenStore = TokenStore(context)
+    val syncMeta = SyncMeta(context)
     private val db = AppDatabase.get(context)
     private val api: ApiService = RetrofitClient.create(tokenStore)
     private val deviceId: String = DeviceId.get(context)
+    private val appContext = context.applicationContext
 
     val orders: Flow<List<OrderEntity>> = db.orderDao().observeAll()
     val products: Flow<List<ProductEntity>> = db.productDao().observeAll()
@@ -72,6 +82,34 @@ class Repository(context: Context) {
     suspend fun ensureLoggedIn(): Boolean {
         if (tokenStore.isLoggedIn()) return true
         return login(BuildConfig.TABLET_EMPLOYEE_ID, BuildConfig.TABLET_PIN) is LoginResult.Success
+    }
+
+    /** Loads the bundled starter catalog/worker directory (assets/seed_data.json)
+     * so a brand-new tablet that has never once reached the server still
+     * shows something instead of an empty screen. Only fills in whichever
+     * table is currently empty - never overwrites real synced data, and a
+     * real sync always wins once it succeeds. Worker balances from this
+     * seed are a build-time snapshot and may be stale; syncMeta tracks
+     * whether a real sync has ever happened so the UI can warn about that. */
+    suspend fun seedIfEmpty() {
+        val needsProducts = db.productDao().count() == 0
+        val needsWorkers = db.workerDao().count() == 0
+        if (!needsProducts && !needsWorkers) return
+        try {
+            val json = appContext.assets.open("seed_data.json").bufferedReader().use { it.readText() }
+            val seed = Gson().fromJson(json, SeedData::class.java)
+            if (needsProducts) {
+                db.productDao().upsertAll(
+                    seed.products.map { ProductEntity(it.id, it.name, it.sku, it.price, it.stock, it.unit, it.category) }
+                )
+            }
+            if (needsWorkers) {
+                db.workerDao().upsertAll(seed.workers.map { WorkerEntity(it.employee_id, it.name, it.balance) })
+            }
+        } catch (e: Exception) {
+            // Bundled seed missing or corrupt - not fatal, the app just
+            // stays empty until a real sync happens.
+        }
     }
 
     /** Refreshes the local product cache. Call when online (e.g. dashboard
@@ -173,6 +211,7 @@ class Repository(context: Context) {
                 db.productDao().upsertAll(products)
                 db.workerDao().clear()
                 db.workerDao().upsertAll(workers)
+                syncMeta.markCashierSynced()
                 true
             } else false
         } catch (e: Exception) {

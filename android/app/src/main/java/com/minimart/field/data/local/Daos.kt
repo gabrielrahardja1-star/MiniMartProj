@@ -12,6 +12,9 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY name")
     fun observeAll(): Flow<List<ProductEntity>>
 
+    @Query("SELECT COUNT(*) FROM products")
+    suspend fun count(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(products: List<ProductEntity>)
 
@@ -59,6 +62,9 @@ interface WorkerDao {
 
     @Query("SELECT * FROM cashier_workers WHERE employeeId = :employeeId")
     suspend fun getByEmployeeId(employeeId: String): WorkerEntity?
+
+    @Query("SELECT COUNT(*) FROM cashier_workers")
+    suspend fun count(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(workers: List<WorkerEntity>)

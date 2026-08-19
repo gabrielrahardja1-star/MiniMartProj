@@ -37,6 +37,7 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
     val cart by viewModel.cart.collectAsState()
     val saleError by viewModel.saleError.collectAsState()
     val saleCompleted by viewModel.saleCompleted.collectAsState()
+    val lastSyncEpochMs by viewModel.lastSyncEpochMs.collectAsState()
 
     if (saleCompleted) {
         viewModel.resetSaleCompleted()
@@ -54,6 +55,16 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
 
     Scaffold(topBar = { TopAppBar(title = { Text("Cashier — New Sale") }) }) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            if (lastSyncEpochMs == null) {
+                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    Text(
+                        "Using built-in starter data — this tablet has never synced with the server. " +
+                            "Balances shown may be out of date. Connect to the internet to get live data.",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            }
             if (worker == null) {
                 Text("Enter worker ID", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
