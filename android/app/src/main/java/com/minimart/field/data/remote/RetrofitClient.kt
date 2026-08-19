@@ -2,6 +2,7 @@ package com.minimart.field.data.remote
 
 import com.minimart.field.BuildConfig
 import com.minimart.field.data.TokenStore
+import java.util.concurrent.TimeUnit
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -27,6 +28,13 @@ object RetrofitClient {
         val client = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(tokenStore))
             .addInterceptor(logging)
+            // Site Wi-Fi can be flaky (observed handshake stalls well past
+            // OkHttp's 10s default) - give it more room and one automatic
+            // retry before the app gives up and falls back to offline login.
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
 
         return Retrofit.Builder()
