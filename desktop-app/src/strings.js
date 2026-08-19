@@ -1,0 +1,90 @@
+// Ported from android/app/src/main/java/com/minimart/field/ui/cashier/Strings.kt
+// so the desktop till reads identically to the tablet, plus a few new
+// strings for the manual sync button (desktop-only feature).
+export const LANGS = ['EN', 'ZH', 'ID']
+
+export function nextLang(lang) {
+  return LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]
+}
+
+const STRINGS = {
+  EN: {
+    title: 'Cashier — New Sale',
+    enterWorkerId: 'Enter worker ID',
+    employeeId: 'Employee ID',
+    lookUpWorker: 'Look Up Worker',
+    change: 'Change',
+    noProductsCached: 'No products cached yet. Connect to the internet once to download the catalog.',
+    add: 'Add',
+    total: 'Total',
+    confirmSale: 'Confirm Sale',
+    saleComplete: 'Sale complete',
+    saleFailed: 'Sale failed',
+    ok: 'OK',
+    staleBanner: '⚠ Using built-in starter data — this till has never synced with the server. Balances shown may be out of date. Connect to the internet to get live data.',
+    outOfStock: 'Out of stock',
+    left: 'left',
+    idLabel: 'ID',
+    sync: 'Sync',
+    syncing: 'Syncing…',
+    pendingSales: 'pending',
+    syncSuccess: 'Synced',
+    syncFailure: 'Sync failed',
+    lastSynced: 'Last synced',
+    never: 'never',
+  },
+  ZH: {
+    title: '收银 — 新订单',
+    enterWorkerId: '输入员工编号',
+    employeeId: '员工编号',
+    lookUpWorker: '查找员工',
+    change: '更换',
+    noProductsCached: '尚未缓存商品，请连接网络下载商品目录。',
+    add: '添加',
+    total: '总计',
+    confirmSale: '确认销售',
+    saleComplete: '销售完成',
+    saleFailed: '销售失败',
+    ok: '确定',
+    staleBanner: '⚠ 正在使用内置初始数据 — 此收银机尚未与服务器同步，显示的余额可能不是最新的。请连接网络获取实时数据。',
+    outOfStock: '缺货',
+    left: '剩余',
+    idLabel: '编号',
+    sync: '同步',
+    syncing: '同步中…',
+    pendingSales: '待同步',
+    syncSuccess: '已同步',
+    syncFailure: '同步失败',
+    lastSynced: '上次同步',
+    never: '从未',
+  },
+  ID: {
+    title: 'Kasir — Penjualan Baru',
+    enterWorkerId: 'Masukkan ID pekerja',
+    employeeId: 'ID Karyawan',
+    lookUpWorker: 'Cari Pekerja',
+    change: 'Ganti',
+    noProductsCached: 'Belum ada produk tersimpan. Sambungkan ke internet untuk mengunduh katalog.',
+    add: 'Tambah',
+    total: 'Total',
+    confirmSale: 'Konfirmasi Penjualan',
+    saleComplete: 'Penjualan berhasil',
+    saleFailed: 'Penjualan gagal',
+    ok: 'OK',
+    staleBanner: '⚠ Menggunakan data awal bawaan — kasir ini belum pernah tersinkron dengan server. Saldo yang ditampilkan mungkin tidak terbaru. Sambungkan ke internet untuk data langsung.',
+    outOfStock: 'Stok habis',
+    left: 'tersisa',
+    idLabel: 'ID',
+    sync: 'Sinkronkan',
+    syncing: 'Menyinkronkan…',
+    pendingSales: 'tertunda',
+    syncSuccess: 'Berhasil disinkronkan',
+    syncFailure: 'Sinkronisasi gagal',
+    lastSynced: 'Terakhir disinkronkan',
+    never: 'belum pernah',
+  },
+}
+
+export function strings(lang) {
+  return STRINGS[lang] || STRINGS.EN
+}

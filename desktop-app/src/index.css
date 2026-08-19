@@ -1,0 +1,76 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #f4f5f7;
+  color: #1a1a1a;
+}
+.app { display: flex; flex-direction: column; height: 100vh; padding: 16px; gap: 12px; }
+.loading { padding: 40px; text-align: center; }
+
+.topbar { display: flex; justify-content: space-between; align-items: center; }
+.topbar h1 { font-size: 20px; margin: 0; }
+.topbar-actions { display: flex; gap: 8px; }
+.pill { border-radius: 999px; padding: 8px 16px; border: 1px solid #ccc; background: white; cursor: pointer; }
+.pill:disabled { opacity: 0.6; cursor: default; }
+.sync-btn { background: #2563eb; color: white; border: none; }
+
+.sync-message { font-size: 13px; color: #444; }
+.sync-panel { background: white; border-radius: 8px; padding: 8px; max-height: 160px; overflow-y: auto; }
+.sync-panel-empty { color: #888; font-size: 13px; padding: 8px; }
+.sync-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sync-table th, .sync-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; }
+.row-pending td:nth-child(3) { color: #e67e22; }
+.row-failed td:nth-child(3) { color: #c0392b; }
+.row-synced td:nth-child(3) { color: #16a34a; }
+.last-synced { font-size: 12px; color: #888; }
+
+.banner { background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; font-size: 13px; }
+
+.lookup-panel { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 60px auto; }
+.lookup-panel input { padding: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; }
+.lookup-panel button { padding: 10px; font-size: 16px; border-radius: 8px; border: none; background: #2563eb; color: white; cursor: pointer; }
+.error { color: #c0392b; font-size: 13px; }
+
+.worker-card { display: flex; align-items: center; gap: 12px; background: white; border-radius: 10px; padding: 12px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.worker-info { flex: 1; }
+.worker-name { font-weight: 600; }
+.worker-meta { font-size: 13px; color: #666; }
+
+.empty { padding: 40px; text-align: center; color: #888; }
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 80px;
+}
+.product-card { position: relative; background: white; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.product-card img, .product-img-placeholder { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; background: #eee; }
+.badge { position: absolute; top: 6px; right: 6px; font-size: 11px; padding: 2px 6px; border-radius: 6px; color: white; }
+.badge-out { background: #c0392b; }
+.badge-low { background: #e67e22; }
+.product-name { font-size: 13px; font-weight: 600; }
+.product-name-secondary { font-size: 12px; color: #666; }
+.product-meta { font-size: 12px; color: #444; }
+.add-btn { margin-top: auto; padding: 6px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; }
+.add-btn:disabled { background: #aaa; cursor: default; }
+.stepper { margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
+.stepper button { width: 28px; height: 28px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; }
+.stepper button:disabled { background: #aaa; }
+
+.checkout-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  background: white; padding: 14px 20px; box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+}
+.checkout-bar .total { font-size: 18px; font-weight: 600; }
+.checkout-bar button { padding: 12px 24px; font-size: 16px; border-radius: 8px; border: none; background: #16a34a; color: white; cursor: pointer; }
+.checkout-bar button:disabled { background: #aaa; cursor: default; }
+
+.dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+.dialog { background: white; border-radius: 10px; padding: 20px; min-width: 280px; }
+.dialog button { margin-top: 12px; padding: 8px 20px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; }
