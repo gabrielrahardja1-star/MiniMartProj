@@ -51,8 +51,11 @@ class CashierViewModel(application: Application) : AndroidViewModel(application)
     private val _saleError = MutableStateFlow<String?>(null)
     val saleError: StateFlow<String?> = _saleError
 
-    private val _saleCompleted = MutableStateFlow(false)
-    val saleCompleted: StateFlow<Boolean> = _saleCompleted
+    /** Set right after a sale queues successfully; shown as a confirmation
+     * dialog so the cashier gets explicit feedback instead of the screen
+     * just silently resetting (which reads as "nothing happened"). */
+    private val _saleSuccessMessage = MutableStateFlow<String?>(null)
+    val saleSuccessMessage: StateFlow<String?> = _saleSuccessMessage
 
     fun setEmployeeIdInput(value: String) {
         _employeeIdInput.value = value
@@ -106,14 +109,17 @@ class CashierViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         if (items.isEmpty()) return
+        val total = items.sumOf { it.unitPrice * it.quantity }
         viewModelScope.launch {
             when (val result = repo.queueSale(worker, items)) {
                 is SaleResult.Success -> {
+                    val newBalance = worker.balance - total
+                    _saleSuccessMessage.value =
+                        "${worker.name} — ₱${"%.2f".format(total)} charged.\nNew balance: ₱${"%.2f".format(newBalance)}"
                     _cart.value = emptyMap()
                     _lookedUpWorker.value = null
                     _employeeIdInput.value = ""
                     _saleError.value = null
-                    _saleCompleted.value = true
                 }
                 is SaleResult.Error -> {
                     _saleError.value = result.message
@@ -122,8 +128,8 @@ class CashierViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun resetSaleCompleted() {
-        _saleCompleted.value = false
+    fun dismissSaleSuccess() {
+        _saleSuccessMessage.value = null
     }
 
     fun dismissSaleError() {

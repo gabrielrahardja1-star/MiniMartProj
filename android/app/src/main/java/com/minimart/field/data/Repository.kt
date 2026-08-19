@@ -221,9 +221,10 @@ class Repository(context: Context) {
 
     suspend fun findWorker(employeeId: String): WorkerEntity? = db.workerDao().getByEmployeeId(employeeId)
 
-    /** Rings up a sale for [worker]: deducts the cached balance immediately
-     * (offline-authoritative check) and queues the sale for sync. Returns
-     * an error instead of queueing if the cached balance can't cover it. */
+    /** Rings up a sale for [worker]: deducts the cached balance and each
+     * item's cached stock immediately (offline-authoritative), and queues
+     * the sale for sync. Returns an error instead of queueing if the
+     * cached balance can't cover it. */
     suspend fun queueSale(worker: WorkerEntity, items: List<OrderLineItem>): SaleResult {
         val total = items.sumOf { it.unitPrice * it.quantity }
         if (total > worker.balance) {
@@ -231,6 +232,7 @@ class Repository(context: Context) {
         }
         val clientRecordId = "device-$deviceId-${UUID.randomUUID()}"
         db.workerDao().updateBalance(worker.employeeId, worker.balance - total)
+        items.forEach { db.productDao().decrementStock(it.productId, it.quantity) }
         db.saleDao().upsert(
             SaleEntity(
                 clientRecordId = clientRecordId,

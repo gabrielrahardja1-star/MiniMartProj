@@ -36,12 +36,24 @@ fun CashierScreen(viewModel: CashierViewModel = viewModel(), onSaleCompleted: ()
     val products by viewModel.products.collectAsState()
     val cart by viewModel.cart.collectAsState()
     val saleError by viewModel.saleError.collectAsState()
-    val saleCompleted by viewModel.saleCompleted.collectAsState()
+    val saleSuccessMessage by viewModel.saleSuccessMessage.collectAsState()
     val lastSyncEpochMs by viewModel.lastSyncEpochMs.collectAsState()
 
-    if (saleCompleted) {
-        viewModel.resetSaleCompleted()
-        onSaleCompleted()
+    saleSuccessMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = {
+                viewModel.dismissSaleSuccess()
+                onSaleCompleted()
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.dismissSaleSuccess()
+                    onSaleCompleted()
+                }) { Text("OK") }
+            },
+            title = { Text("Sale complete") },
+            text = { Text(message) },
+        )
     }
 
     saleError?.let { message ->

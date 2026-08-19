@@ -15,6 +15,9 @@ interface ProductDao {
     @Query("SELECT COUNT(*) FROM products")
     suspend fun count(): Int
 
+    @Query("UPDATE products SET stock = MAX(stock - :quantity, 0) WHERE id = :productId")
+    suspend fun decrementStock(productId: Int, quantity: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(products: List<ProductEntity>)
 
