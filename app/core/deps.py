@@ -36,3 +36,9 @@ def require_admin(current_worker: Worker = Depends(get_current_worker)) -> Worke
     if current_worker.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_worker
+
+
+def require_cashier(current_worker: Worker = Depends(get_current_worker)) -> Worker:
+    if current_worker.role not in ("cashier", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cashier access required")
+    return current_worker

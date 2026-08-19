@@ -5,9 +5,13 @@ import com.minimart.field.data.local.AppDatabase
 import com.minimart.field.data.local.OrderEntity
 import com.minimart.field.data.local.OrderLineItem
 import com.minimart.field.data.local.ProductEntity
+import com.minimart.field.data.local.SaleEntity
 import com.minimart.field.data.local.SyncStatus
+import com.minimart.field.data.local.WorkerEntity
 import com.minimart.field.data.remote.ApiService
 import com.minimart.field.data.remote.RetrofitClient
+import com.minimart.field.data.remote.dto.CashierSaleRequest
+import com.minimart.field.data.remote.dto.CashierSalesRequest
 import com.minimart.field.data.remote.dto.LoginRequest
 import com.minimart.field.data.remote.dto.SyncOrderItemRequest
 import com.minimart.field.data.remote.dto.SyncOrderRequest
@@ -18,6 +22,11 @@ import kotlinx.coroutines.flow.Flow
 sealed class LoginResult {
     data class Success(val name: String) : LoginResult()
     data class Error(val message: String) : LoginResult()
+}
+
+sealed class SaleResult {
+    data object Success : SaleResult()
+    data class Error(val message: String) : SaleResult()
 }
 
 /**
@@ -34,6 +43,8 @@ class Repository(context: Context) {
 
     val orders: Flow<List<OrderEntity>> = db.orderDao().observeAll()
     val products: Flow<List<ProductEntity>> = db.productDao().observeAll()
+    val cashierWorkers: Flow<List<WorkerEntity>> = db.workerDao().observeAll()
+    val cashierSales: Flow<List<SaleEntity>> = db.saleDao().observeAll()
 
     suspend fun login(employeeId: String, pin: String): LoginResult {
         return try {
@@ -121,6 +132,104 @@ class Repository(context: Context) {
             response.body()!!.results.forEach { result ->
                 if (result.status == "synced") {
                     dao.markResult(result.client_record_id, SyncStatus.SYNCED, result.server_order_id, null, now)
+                } else {
+                    allSynced = false
+                    dao.markResult(result.client_record_id, SyncStatus.FAILED, null, result.error, now)
+                }
+            }
+            allSynced
+        } catch (e: Exception) {
+            toSync.forEach {
+                dao.markResult(it.clientRecordId, SyncStatus.FAILED, null, "No connection: ${e.message}", now)
+            }
+            false
+        }
+    }
+
+    /** Refreshes the cached product catalog and worker directory (with
+     * balances) for the cashier screen. Call when online. */
+    suspend fun refreshCashierMasterData(): Boolean {
+        return try {
+            val response = api.cashierMasterData()
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val products = body.products.map {
+                    ProductEntity(it.id, it.name, it.sku, it.price, it.stock, it.unit, it.category)
+                }
+                val workers = body.workers.map { WorkerEntity(it.employee_id, it.name, it.balance) }
+                db.productDao().clear()
+                db.productDao().upsertAll(products)
+                db.workerDao().clear()
+                db.workerDao().upsertAll(workers)
+                true
+            } else false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun findWorker(employeeId: String): WorkerEntity? = db.workerDao().getByEmployeeId(employeeId)
+
+    /** Rings up a sale for [worker]: deducts the cached balance immediately
+     * (offline-authoritative check) and queues the sale for sync. Returns
+     * an error instead of queueing if the cached balance can't cover it. */
+    suspend fun queueSale(worker: WorkerEntity, items: List<OrderLineItem>): SaleResult {
+        val total = items.sumOf { it.unitPrice * it.quantity }
+        if (total > worker.balance) {
+            return SaleResult.Error("Insufficient balance: ${worker.name} has ${worker.balance}, sale is $total")
+        }
+        val clientRecordId = "device-$deviceId-${UUID.randomUUID()}"
+        db.workerDao().updateBalance(worker.employeeId, worker.balance - total)
+        db.saleDao().upsert(
+            SaleEntity(
+                clientRecordId = clientRecordId,
+                workerEmployeeId = worker.employeeId,
+                workerName = worker.name,
+                items = items,
+                total = total,
+                createdAtEpochMs = System.currentTimeMillis(),
+                syncStatus = SyncStatus.PENDING,
+            )
+        )
+        return SaleResult.Success
+    }
+
+    /** Uploads every Pending/Failed cashier sale. Server settles each sale
+     * from the worker's real balance and returns the authoritative balance
+     * after, which overwrites the locally-estimated one. */
+    suspend fun syncPendingSales(): Boolean {
+        val dao = db.saleDao()
+        val toSync = dao.getByStatus(SyncStatus.PENDING) + dao.getByStatus(SyncStatus.FAILED)
+        if (toSync.isEmpty()) return true
+
+        val now = System.currentTimeMillis()
+        toSync.forEach { dao.markAttempt(it.clientRecordId, SyncStatus.UPLOADING, now) }
+
+        return try {
+            val request = CashierSalesRequest(
+                sales = toSync.map { sale ->
+                    CashierSaleRequest(
+                        client_record_id = sale.clientRecordId,
+                        worker_employee_id = sale.workerEmployeeId,
+                        items = sale.items.map { SyncOrderItemRequest(it.productId, it.quantity) },
+                    )
+                }
+            )
+            val response = api.syncCashierSales(request)
+            if (!response.isSuccessful || response.body() == null) {
+                toSync.forEach {
+                    dao.markResult(it.clientRecordId, SyncStatus.FAILED, null, "Server error ${response.code()}", now)
+                }
+                return false
+            }
+            var allSynced = true
+            response.body()!!.results.forEach { result ->
+                if (result.status == "synced") {
+                    dao.markResult(result.client_record_id, SyncStatus.SYNCED, result.server_order_id, null, now)
+                    val sale = toSync.find { it.clientRecordId == result.client_record_id }
+                    if (sale != null && result.worker_balance_after != null) {
+                        db.workerDao().updateBalance(sale.workerEmployeeId, result.worker_balance_after)
+                    }
                 } else {
                     allSynced = false
                     dao.markResult(result.client_record_id, SyncStatus.FAILED, null, result.error, now)

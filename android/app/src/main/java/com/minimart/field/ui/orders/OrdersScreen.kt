@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -28,6 +29,7 @@ import com.minimart.field.data.local.SyncStatus
 
 private val tabs = listOf("Pending", "Synced", "Failed")
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(viewModel: OrdersViewModel = viewModel()) {
     val orders by viewModel.orders.collectAsState()

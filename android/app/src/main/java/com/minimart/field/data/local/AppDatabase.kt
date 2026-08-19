@@ -6,11 +6,17 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [ProductEntity::class, OrderEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [ProductEntity::class, OrderEntity::class, WorkerEntity::class, SaleEntity::class],
+    version = 2,
+    exportSchema = false,
+)
 @TypeConverters(OrderConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun orderDao(): OrderDao
+    abstract fun workerDao(): WorkerDao
+    abstract fun saleDao(): SaleDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -21,7 +27,12 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "minimart_field.db",
-                ).build().also { instance = it }
+                )
+                    // No migration written yet for the cashier tables (v1 -> v2);
+                    // acceptable to wipe local data pre-launch. Revisit before
+                    // this ships with real queued orders on devices.
+                    .fallbackToDestructiveMigration()
+                    .build().also { instance = it }
             }
     }
 }

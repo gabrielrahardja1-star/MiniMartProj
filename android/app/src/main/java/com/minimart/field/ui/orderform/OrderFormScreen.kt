@@ -10,14 +10,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderFormScreen(viewModel: OrderFormViewModel = viewModel(), onOrderQueued: () -> Unit) {
     val products by viewModel.products.collectAsState()
@@ -61,11 +59,11 @@ fun OrderFormScreen(viewModel: OrderFormViewModel = viewModel(), onOrderQueued: 
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = { viewModel.setQuantity(product.id, qty - 1) }) {
-                                    Icon(Icons.Filled.Remove, contentDescription = "Decrease")
+                                    Text("−", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
                                 }
                                 Text(qty.toString())
                                 IconButton(onClick = { viewModel.setQuantity(product.id, qty + 1) }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Increase")
+                                    Text("+", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
                                 }
                             }
                         }

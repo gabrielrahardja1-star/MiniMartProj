@@ -15,8 +15,10 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun DashboardScreen(
     workerName: String,
+    isCashier: Boolean,
     onNewOrder: () -> Unit,
     onViewOrders: () -> Unit,
+    onCashierMode: () -> Unit,
     onLogout: () -> Unit,
 ) {
     Column(
@@ -28,6 +30,10 @@ fun DashboardScreen(
         Button(onClick = onNewOrder, modifier = Modifier.fillMaxWidth()) { Text("New Order") }
         androidx.compose.foundation.layout.Spacer(Modifier.padding(8.dp))
         Button(onClick = onViewOrders, modifier = Modifier.fillMaxWidth()) { Text("My Orders") }
+        if (isCashier) {
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(8.dp))
+            Button(onClick = onCashierMode, modifier = Modifier.fillMaxWidth()) { Text("Cashier Mode") }
+        }
         androidx.compose.foundation.layout.Spacer(Modifier.padding(24.dp))
         OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Logout") }
     }

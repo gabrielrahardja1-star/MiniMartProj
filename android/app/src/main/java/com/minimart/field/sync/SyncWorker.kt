@@ -22,8 +22,9 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val repo = Repository.get(applicationContext)
         if (!repo.tokenStore.isLoggedIn()) return Result.success()
 
-        val allSynced = repo.syncPendingOrders()
-        return if (allSynced) Result.success() else Result.retry()
+        val ordersSynced = repo.syncPendingOrders()
+        val salesSynced = repo.syncPendingSales()
+        return if (ordersSynced && salesSynced) Result.success() else Result.retry()
     }
 
     companion object {

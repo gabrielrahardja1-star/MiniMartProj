@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.minimart.field.data.Repository
+import com.minimart.field.ui.cashier.CashierScreen
 import com.minimart.field.ui.dashboard.DashboardScreen
 import com.minimart.field.ui.login.LoginScreen
 import com.minimart.field.ui.orderform.OrderFormScreen
@@ -31,6 +32,7 @@ private object Routes {
     const val DASHBOARD = "dashboard"
     const val NEW_ORDER = "new_order"
     const val ORDERS = "orders"
+    const val CASHIER = "cashier"
 }
 
 @Composable
@@ -48,10 +50,13 @@ private fun MiniMartNavHost() {
             })
         }
         composable(Routes.DASHBOARD) {
+            val role = repo.tokenStore.role()
             DashboardScreen(
                 workerName = repo.tokenStore.workerName() ?: "Worker",
+                isCashier = role == "cashier" || role == "admin",
                 onNewOrder = { navController.navigate(Routes.NEW_ORDER) },
                 onViewOrders = { navController.navigate(Routes.ORDERS) },
+                onCashierMode = { navController.navigate(Routes.CASHIER) },
                 onLogout = {
                     repo.logout()
                     navController.navigate(Routes.LOGIN) {
@@ -65,6 +70,9 @@ private fun MiniMartNavHost() {
         }
         composable(Routes.ORDERS) {
             OrdersScreen()
+        }
+        composable(Routes.CASHIER) {
+            CashierScreen(onSaleCompleted = { navController.popBackStack() })
         }
     }
 }

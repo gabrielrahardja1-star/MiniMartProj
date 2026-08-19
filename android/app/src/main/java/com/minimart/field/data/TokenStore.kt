@@ -35,6 +35,7 @@ class TokenStore(context: Context) {
     fun token(): String? = prefs.getString(KEY_TOKEN, null)
     fun workerName(): String? = prefs.getString(KEY_NAME, null)
     fun employeeId(): String? = prefs.getString(KEY_EMPLOYEE_ID, null)
+    fun role(): String? = prefs.getString(KEY_ROLE, null)
     fun isLoggedIn(): Boolean = token() != null
 
     fun clear() {

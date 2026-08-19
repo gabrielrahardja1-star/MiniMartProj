@@ -6,8 +6,14 @@ from app.db.session import get_db
 from app.models.order import Order
 from app.models.product import Product
 from app.models.worker import Worker
-from app.core.deps import get_current_worker
+from app.core.deps import get_current_worker, require_cashier
 from app.core.pickup import SLOTS
+from app.schemas.cashier import (
+    CashierMasterDataOut,
+    CashierSalesRequest,
+    CashierSalesResponse,
+    CashierSaleResult,
+)
 from app.schemas.mobile import (
     MasterDataOut,
     SyncOrdersRequest,
@@ -15,6 +21,7 @@ from app.schemas.mobile import (
     SyncOrderResult,
     SyncStatusOut,
 )
+from app.services.cashier_service import create_cashier_sale
 from app.services.order_service import create_order_for_worker
 
 router = APIRouter(prefix="/api/mobile/v1", tags=["mobile"])
@@ -104,3 +111,66 @@ def sync_status(
         )
         for o in orders
     ]
+
+
+@router.get("/cashier/master-data", response_model=CashierMasterDataOut)
+def cashier_master_data(
+    db: Session = Depends(get_db),
+    _cashier: Worker = Depends(require_cashier),
+):
+    """Everything the cashier tablet caches locally: the product catalog
+    plus the worker directory (with balances) needed to look someone up by
+    employee ID while offline."""
+    products = (
+        db.query(Product)
+        .filter(Product.stock > 0, Product.is_active == True)
+        .order_by(Product.name)
+        .all()
+    )
+    workers = (
+        db.query(Worker)
+        .filter(Worker.is_active == True, Worker.role == "worker")
+        .order_by(Worker.name)
+        .all()
+    )
+    return CashierMasterDataOut(
+        products=products,
+        workers=workers,
+        server_time=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.post("/cashier/sales/sync", response_model=CashierSalesResponse)
+def sync_cashier_sales(
+    body: CashierSalesRequest,
+    db: Session = Depends(get_db),
+    cashier: Worker = Depends(require_cashier),
+):
+    """Uploads a batch of locally-queued cashier sales. Each sale creates an
+    order for the named worker and settles it from that worker's wallet in
+    one transaction. Idempotent per client_record_id, same contract as
+    /orders/sync."""
+    results: list[CashierSaleResult] = []
+    for req in body.sales:
+        try:
+            order = create_cashier_sale(
+                db,
+                cashier_id=cashier.id,
+                worker_employee_id=req.worker_employee_id,
+                items=req.items,
+                client_record_id=req.client_record_id,
+            )
+            results.append(CashierSaleResult(
+                client_record_id=req.client_record_id,
+                status="synced",
+                server_order_id=order.id,
+                worker_balance_after=float(order.worker.balance),
+            ))
+        except HTTPException as exc:
+            db.rollback()
+            results.append(CashierSaleResult(
+                client_record_id=req.client_record_id,
+                status="failed",
+                error=str(exc.detail),
+            ))
+    return CashierSalesResponse(results=results)

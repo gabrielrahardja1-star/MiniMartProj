@@ -1,5 +1,8 @@
 package com.minimart.field.data.remote
 
+import com.minimart.field.data.remote.dto.CashierMasterDataResponse
+import com.minimart.field.data.remote.dto.CashierSalesRequest
+import com.minimart.field.data.remote.dto.CashierSalesResponse
 import com.minimart.field.data.remote.dto.LoginRequest
 import com.minimart.field.data.remote.dto.MasterDataResponse
 import com.minimart.field.data.remote.dto.SyncOrdersRequest
@@ -20,4 +23,10 @@ interface ApiService {
 
     @POST("api/mobile/v1/orders/sync")
     suspend fun syncOrders(@Body body: SyncOrdersRequest): Response<SyncOrdersResponse>
+
+    @GET("api/mobile/v1/cashier/master-data")
+    suspend fun cashierMasterData(): Response<CashierMasterDataResponse>
+
+    @POST("api/mobile/v1/cashier/sales/sync")
+    suspend fun syncCashierSales(@Body body: CashierSalesRequest): Response<CashierSalesResponse>
 }
