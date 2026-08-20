@@ -11,6 +11,12 @@ uses, and authenticates as the same fixed device identity (`ADMIN001` /
 
 ## Differences from the Android app
 
+- **Catalog-first flow, not worker-first.** The Android tablet gates the
+  whole screen behind a worker lookup before showing any products. The
+  desktop till instead shows the product catalog immediately on launch —
+  the cashier rings up items into the cart first, and only enters the
+  Employee ID being charged when they tap "Confirm Sale" at the end,
+  matching how a real register works (ring up, then take payment).
 - **Manual sync button** in the top bar shows the count of unsynced
   transactions and lets the cashier trigger a sync on demand (not just on
   the background timer). A dropdown panel lists every transaction with its

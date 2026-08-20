@@ -11,7 +11,7 @@ import {
   getAllSales,
 } from './db'
 import { pullMasterData, pushPendingSales } from './sync'
-import { strings, nextLang, LANGS } from './strings'
+import { strings, nextLang } from './strings'
 import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS } from './config'
 
 function uuid() {
@@ -26,10 +26,6 @@ export default function App() {
   const [everSynced, setEverSynced] = useState(false)
   const [lastSyncAt, setLastSyncAt] = useState(null)
 
-  const [employeeIdInput, setEmployeeIdInput] = useState('')
-  const [worker, setWorker] = useState(null)
-  const [lookupError, setLookupError] = useState('')
-
   const [products, setProducts] = useState([])
   const [cart, setCart] = useState({}) // productId -> qty
 
@@ -38,6 +34,14 @@ export default function App() {
   const [syncMessage, setSyncMessage] = useState('')
   const [showSyncPanel, setShowSyncPanel] = useState(false)
   const [salesLog, setSalesLog] = useState([])
+
+  // Worker is looked up only at checkout time, not at app start — the
+  // cashier rings up items against the catalog first, and only enters
+  // the Employee ID being charged when closing out the sale.
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [checkoutIdInput, setCheckoutIdInput] = useState('')
+  const [checkoutError, setCheckoutError] = useState('')
+  const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   const [dialog, setDialog] = useState(null) // { title, body }
 
@@ -61,10 +65,6 @@ export default function App() {
       await refreshProducts()
       await refreshPendingCount()
       setReady(true)
-      // Best-effort initial sync; ignore failure (offline first run uses
-      // whatever's cached, same as Android's bundled seed data — except
-      // here there's no seed bundle, so an empty first run just shows
-      // the "no products cached" state until connectivity arrives).
       runSync(true)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,25 +98,6 @@ export default function App() {
       setSyncing(false)
     }
   }, [t, refreshProducts, refreshPendingCount])
-
-  async function lookUpWorker() {
-    setLookupError('')
-    const id = employeeIdInput.trim()
-    if (!id) return
-    const found = await findWorkerByEmployeeId(id)
-    if (!found) {
-      setLookupError(`Worker "${id}" not found in cached directory.`)
-      return
-    }
-    setWorker(found)
-  }
-
-  function changeWorker() {
-    setWorker(null)
-    setEmployeeIdInput('')
-    setCart({})
-    setLookupError('')
-  }
 
   function addToCart(product) {
     setCart((prev) => {
@@ -152,31 +133,62 @@ export default function App() {
     [cartItems]
   )
 
-  const canConfirm = cartItems.length > 0 && worker && total <= worker.balance
+  function openCheckout() {
+    if (cartItems.length === 0) return
+    setCheckoutIdInput('')
+    setCheckoutError('')
+    setCheckoutOpen(true)
+  }
 
-  async function confirmSale() {
-    if (!canConfirm) return
-    const clientRecordId = uuid()
-    const items = cartItems.map((i) => ({ product_id: i.product.id, quantity: i.qty }))
+  function closeCheckout() {
+    setCheckoutOpen(false)
+    setCheckoutIdInput('')
+    setCheckoutError('')
+  }
 
-    await queueSale({
-      clientRecordId,
-      workerEmployeeId: worker.employee_id,
-      items,
-      total,
-    })
-    for (const i of cartItems) {
-      await decrementStockLocally(i.product.id, i.qty)
+  async function submitCheckout() {
+    const id = checkoutIdInput.trim()
+    if (!id) return
+    setCheckoutBusy(true)
+    setCheckoutError('')
+    try {
+      const worker = await findWorkerByEmployeeId(id)
+      if (!worker) {
+        setCheckoutError(t.workerNotFound)
+        return
+      }
+      if (total > worker.balance) {
+        setCheckoutError(`${t.insufficientBalance} (${worker.name}: ${worker.balance.toFixed(2)})`)
+        return
+      }
+
+      const clientRecordId = uuid()
+      const items = cartItems.map((i) => ({ product_id: i.product.id, quantity: i.qty }))
+
+      await queueSale({
+        clientRecordId,
+        workerEmployeeId: worker.employee_id,
+        items,
+        total,
+      })
+      for (const i of cartItems) {
+        await decrementStockLocally(i.product.id, i.qty)
+      }
+      await decrementWorkerBalanceLocally(worker.employee_id, total)
+
+      const newBalance = worker.balance - total
+      closeCheckout()
+      setCart({})
+      setDialog({
+        title: t.saleComplete,
+        body: `${worker.name}: charged ${total.toFixed(2)}. New balance: ${newBalance.toFixed(2)}.`,
+      })
+      await refreshProducts()
+      await refreshPendingCount()
+      runSync(true)
+    } finally {
+      setCheckoutBusy(false)
     }
-    await decrementWorkerBalanceLocally(worker.employee_id, total)
-
-    const newBalance = worker.balance - total
-    setDialog({ title: t.saleComplete, body: `Charged ${total.toFixed(2)}. New balance: ${newBalance.toFixed(2)}.` })
-    setWorker({ ...worker, balance: newBalance })
-    setCart({})
-    await refreshProducts()
-    await refreshPendingCount()
-    runSync(true)
   }
 
   if (!ready) return <div className="loading">Loading…</div>
@@ -236,86 +248,81 @@ export default function App() {
 
       {!everSynced && <div className="banner">{t.staleBanner}</div>}
 
-      {!worker ? (
-        <div className="lookup-panel">
-          <label>{t.enterWorkerId}</label>
-          <input
-            autoFocus
-            placeholder={t.employeeId}
-            value={employeeIdInput}
-            onChange={(e) => setEmployeeIdInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && lookUpWorker()}
-          />
-          <button onClick={lookUpWorker}>{t.lookUpWorker}</button>
-          {lookupError && <div className="error">{lookupError}</div>}
-        </div>
+      {products.length === 0 ? (
+        <div className="empty">{t.noProductsCached}</div>
       ) : (
-        <>
-          <div className="worker-card">
-            <div className="avatar">{worker.name.charAt(0).toUpperCase()}</div>
-            <div className="worker-info">
-              <div className="worker-name">{worker.name}</div>
-              <div className="worker-meta">
-                {t.idLabel}: {worker.employee_id} · Balance: {worker.balance.toFixed(2)}
-              </div>
-            </div>
-            <button onClick={changeWorker}>{t.change}</button>
-          </div>
-
-          {products.length === 0 ? (
-            <div className="empty">{t.noProductsCached}</div>
-          ) : (
-            <div className="product-grid">
-              {products.map((p) => {
-                const qty = cart[p.id] || 0
-                const outOfStock = p.stock <= 0
-                const lowStock = !outOfStock && p.stock <= LOW_STOCK_THRESHOLD
-                const primaryName = lang === 'ZH' && p.name_zh ? p.name_zh : p.name
-                const secondaryName = lang === 'ZH' && p.name_zh ? p.name : p.name_zh
-                return (
-                  <div className="product-card" key={p.id}>
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={primaryName} />
-                    ) : (
-                      <div className="product-img-placeholder" />
-                    )}
-                    {outOfStock && <div className="badge badge-out">{t.outOfStock}</div>}
-                    {lowStock && <div className="badge badge-low">{p.stock} {t.left}</div>}
-                    <div className="product-name">{primaryName}</div>
-                    {secondaryName && <div className="product-name-secondary">{secondaryName}</div>}
-                    <div className="product-meta">
-                      {p.price.toFixed(2)} / {p.unit}
-                    </div>
-                    {qty === 0 ? (
-                      <button
-                        className="add-btn"
-                        disabled={outOfStock}
-                        onClick={() => addToCart(p)}
-                      >
-                        {t.add}
-                      </button>
-                    ) : (
-                      <div className="stepper">
-                        <button onClick={() => decFromCart(p)}>−</button>
-                        <span>{qty}</span>
-                        <button disabled={qty >= p.stock} onClick={() => addToCart(p)}>+</button>
-                      </div>
-                    )}
+        <div className="product-grid">
+          {products.map((p) => {
+            const qty = cart[p.id] || 0
+            const outOfStock = p.stock <= 0
+            const lowStock = !outOfStock && p.stock <= LOW_STOCK_THRESHOLD
+            const primaryName = lang === 'ZH' && p.name_zh ? p.name_zh : p.name
+            const secondaryName = lang === 'ZH' && p.name_zh ? p.name : p.name_zh
+            return (
+              <div className="product-card" key={p.id}>
+                {p.image_url ? (
+                  <img src={p.image_url} alt={primaryName} />
+                ) : (
+                  <div className="product-img-placeholder" />
+                )}
+                {outOfStock && <div className="badge badge-out">{t.outOfStock}</div>}
+                {lowStock && <div className="badge badge-low">{p.stock} {t.left}</div>}
+                <div className="product-name">{primaryName}</div>
+                {secondaryName && <div className="product-name-secondary">{secondaryName}</div>}
+                <div className="product-meta">
+                  {p.price.toFixed(2)} / {p.unit}
+                </div>
+                {qty === 0 ? (
+                  <button
+                    className="add-btn"
+                    disabled={outOfStock}
+                    onClick={() => addToCart(p)}
+                  >
+                    {t.add}
+                  </button>
+                ) : (
+                  <div className="stepper">
+                    <button onClick={() => decFromCart(p)}>−</button>
+                    <span>{qty}</span>
+                    <button disabled={qty >= p.stock} onClick={() => addToCart(p)}>+</button>
                   </div>
-                )
-              })}
-            </div>
-          )}
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-          <div className="checkout-bar">
-            <div className="total">
-              {t.total}: {total.toFixed(2)}
+      <div className="checkout-bar">
+        <div className="total">
+          {t.total}: {total.toFixed(2)}
+        </div>
+        <button disabled={cartItems.length === 0} onClick={openCheckout}>
+          {t.confirmSale} ({cartItems.reduce((n, i) => n + i.qty, 0)})
+        </button>
+      </div>
+
+      {checkoutOpen && (
+        <div className="dialog-overlay" onClick={closeCheckout}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>{t.chargeTitle}</h2>
+            <p className="checkout-total">{t.total}: {total.toFixed(2)}</p>
+            <input
+              autoFocus
+              placeholder={t.employeeId}
+              value={checkoutIdInput}
+              onChange={(e) => setCheckoutIdInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitCheckout()}
+            />
+            {checkoutError && <div className="error">{checkoutError}</div>}
+            <div className="dialog-actions">
+              <button className="secondary" onClick={closeCheckout}>{t.cancel}</button>
+              <button onClick={submitCheckout} disabled={checkoutBusy || !checkoutIdInput.trim()}>
+                {t.confirmSale}
+              </button>
             </div>
-            <button disabled={!canConfirm} onClick={confirmSale}>
-              {t.confirmSale} ({cartItems.reduce((n, i) => n + i.qty, 0)})
-            </button>
           </div>
-        </>
+        </div>
       )}
 
       {dialog && (

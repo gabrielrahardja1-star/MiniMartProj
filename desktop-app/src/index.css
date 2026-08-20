@@ -27,16 +27,7 @@ body {
 
 .banner { background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; font-size: 13px; }
 
-.lookup-panel { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 60px auto; }
-.lookup-panel input { padding: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; }
-.lookup-panel button { padding: 10px; font-size: 16px; border-radius: 8px; border: none; background: #2563eb; color: white; cursor: pointer; }
 .error { color: #c0392b; font-size: 13px; }
-
-.worker-card { display: flex; align-items: center; gap: 12px; background: white; border-radius: 10px; padding: 12px; }
-.avatar { width: 40px; height: 40px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-.worker-info { flex: 1; }
-.worker-name { font-weight: 600; }
-.worker-meta { font-size: 13px; color: #666; }
 
 .empty { padding: 40px; text-align: center; color: #888; }
 
@@ -72,5 +63,11 @@ body {
 .checkout-bar button:disabled { background: #aaa; cursor: default; }
 
 .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
-.dialog { background: white; border-radius: 10px; padding: 20px; min-width: 280px; }
+.dialog { background: white; border-radius: 10px; padding: 20px; min-width: 320px; }
+.dialog h2 { margin-top: 0; }
 .dialog button { margin-top: 12px; padding: 8px 20px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; }
+.dialog button:disabled { background: #aaa; cursor: default; }
+.dialog input { width: 100%; padding: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; margin-top: 8px; }
+.checkout-total { font-size: 16px; font-weight: 600; margin: 4px 0; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dialog-actions button.secondary { background: #eee; color: #333; }
