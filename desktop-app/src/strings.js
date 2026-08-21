@@ -63,6 +63,7 @@ const STRINGS = {
     noMatches: 'No matching workers',
     confirmCharge: 'Confirm Charge',
     balanceAfter: 'Balance after',
+    tabInventory: 'Inventory',
   },
   ZH: {
     title: '收银 — 新订单',
@@ -119,6 +120,7 @@ const STRINGS = {
     noMatches: '未找到匹配员工',
     confirmCharge: '确认扣款',
     balanceAfter: '扣款后余额',
+    tabInventory: '库存',
   },
   ID: {
     title: 'Kasir — Penjualan Baru',
@@ -175,6 +177,7 @@ const STRINGS = {
     noMatches: 'Tidak ada pekerja yang cocok',
     confirmCharge: 'Konfirmasi Pembayaran',
     balanceAfter: 'Saldo setelah',
+    tabInventory: 'Inventaris',
   },
 }
 

@@ -18,6 +18,7 @@ import { topUpWorker } from './api'
 import { strings, nextLang } from './strings'
 import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS, resolveImageUrl } from './config'
 import { fuzzySearchWorkers } from './fuzzy'
+import Inventory from './Inventory'
 
 function uuid() {
   return crypto.randomUUID()
@@ -382,6 +383,12 @@ export default function App() {
         >
           {t.tabTransactions}{pendingCount ? ` (${pendingCount})` : ''}
         </button>
+        <button
+          className={`tab-btn ${view === 'inventory' ? 'active' : ''}`}
+          onClick={() => setView('inventory')}
+        >
+          {t.tabInventory}
+        </button>
       </div>
 
       {syncMessage && <div className="sync-message">{syncMessage}</div>}
@@ -422,6 +429,8 @@ export default function App() {
             </table>
           )}
         </div>
+      ) : view === 'inventory' ? (
+        <Inventory t={t} />
       ) : products.length === 0 ? (
         <div className="empty">{t.noProductsCached}</div>
       ) : (

@@ -44,15 +44,30 @@ def admin_list_products(
     return result
 
 
+def _generate_sku(db: Session) -> str:
+    """Auto-assigns the next MM-NNN SKU for products created without one
+    (e.g. from the desktop till's inventory tab, which doesn't ask for a
+    SKU)."""
+    existing = [row[0] for row in db.query(Product.sku).filter(Product.sku.like("MM-%")).all()]
+    max_n = 0
+    for sku in existing:
+        suffix = sku[3:]
+        if suffix.isdigit():
+            max_n = max(max_n, int(suffix))
+    return f"MM-{max_n + 1:03d}"
+
+
 @router.post("/products/", response_model=ProductAdminOut, status_code=status.HTTP_201_CREATED)
 def admin_create_product(
     body: ProductCreateRequest,
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
-    if db.query(Product).filter(Product.sku == body.sku).first():
-        raise HTTPException(status_code=409, detail=f"SKU '{body.sku}' already exists")
-    product = Product(**body.model_dump())
+    data = body.model_dump()
+    sku = data.pop("sku") or _generate_sku(db)
+    if db.query(Product).filter(Product.sku == sku).first():
+        raise HTTPException(status_code=409, detail=f"SKU '{sku}' already exists")
+    product = Product(sku=sku, **data)
     db.add(product)
     db.commit()
     db.refresh(product)
