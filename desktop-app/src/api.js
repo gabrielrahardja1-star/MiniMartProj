@@ -108,3 +108,46 @@ export async function reverseTopUp(transactionId) {
     throw err
   }
 }
+
+export async function fetchAdminProducts() {
+  let token = await ensureToken()
+  const path = '/api/admin/products/'
+  try {
+    return await request(path, { token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { token })
+    }
+    throw err
+  }
+}
+
+export async function createProduct(payload) {
+  let token = await ensureToken()
+  const path = '/api/admin/products/'
+  try {
+    return await request(path, { method: 'POST', body: payload, token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { method: 'POST', body: payload, token })
+    }
+    throw err
+  }
+}
+
+export async function updateProductStock(productId, newStock) {
+  let token = await ensureToken()
+  const body = { stock: newStock }
+  const path = `/api/admin/products/${productId}`
+  try {
+    return await request(path, { method: 'PUT', body, token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { method: 'PUT', body, token })
+    }
+    throw err
+  }
+}
