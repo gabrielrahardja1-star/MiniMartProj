@@ -16,14 +16,18 @@ body {
 .sync-btn { background: #2563eb; color: white; border: none; }
 .topup-btn { background: #16a34a; color: white; border: none; }
 
+.topbar-tabs { display: flex; gap: 6px; }
+.tab-btn { border-radius: 999px; padding: 8px 16px; border: 1px solid #ccc; background: white; cursor: pointer; font-weight: 600; }
+.tab-btn.active { background: #111827; color: white; border-color: #111827; }
+
 .sync-message { font-size: 13px; color: #444; }
-.sync-panel { background: white; border-radius: 8px; padding: 8px; max-height: 160px; overflow-y: auto; }
 .sync-panel-empty { color: #888; font-size: 13px; padding: 8px; }
+.tx-panel { background: white; border-radius: 8px; padding: 8px; flex: 1; overflow-y: auto; }
 .sync-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .sync-table th, .sync-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; }
-.row-pending td:nth-child(3) { color: #e67e22; }
-.row-failed td:nth-child(3) { color: #c0392b; }
-.row-synced td:nth-child(3) { color: #16a34a; }
+.row-pending td:nth-child(4) { color: #e67e22; }
+.row-failed td:nth-child(4) { color: #c0392b; }
+.row-synced td:nth-child(4) { color: #16a34a; }
 .last-synced { font-size: 12px; color: #888; }
 
 .banner { background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; font-size: 13px; }

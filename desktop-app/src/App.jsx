@@ -10,6 +10,8 @@ import {
   queueSale,
   getPendingSales,
   getAllSales,
+  logTopUp,
+  getAllTopUps,
 } from './db'
 import { pullMasterData, pushPendingSales } from './sync'
 import { topUpWorker } from './api'
@@ -28,14 +30,16 @@ export default function App() {
   const [everSynced, setEverSynced] = useState(false)
   const [lastSyncAt, setLastSyncAt] = useState(null)
 
+  const [view, setView] = useState('shop') // 'shop' | 'transactions'
+
   const [products, setProducts] = useState([])
   const [cart, setCart] = useState({}) // productId -> qty
 
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
-  const [showSyncPanel, setShowSyncPanel] = useState(false)
   const [salesLog, setSalesLog] = useState([])
+  const [topUpsLog, setTopUpsLog] = useState([])
 
   // Worker is looked up only at checkout time, not at app start — the
   // cashier rings up items against the catalog first, and only enters
@@ -59,6 +63,7 @@ export default function App() {
     const pending = await getPendingSales()
     setPendingCount(pending.length)
     setSalesLog(await getAllSales())
+    setTopUpsLog(await getAllTopUps())
   }, [])
 
   const refreshProducts = useCallback(async () => {
@@ -142,6 +147,37 @@ export default function App() {
     () => cartItems.reduce((sum, i) => sum + i.product.price * i.qty, 0),
     [cartItems]
   )
+
+  const transactions = useMemo(() => {
+    const sales = salesLog.map((s) => ({
+      key: `sale-${s.client_record_id}`,
+      kind: 'sale',
+      worker: s.worker_employee_id,
+      amount: s.total,
+      status: s.status,
+      detail: s.error || '',
+      created_at: s.created_at,
+    }))
+    const topUps = topUpsLog.map((tu) => ({
+      key: `topup-${tu.id}`,
+      kind: 'topup',
+      worker: `${tu.worker_name} (${tu.worker_employee_id})`,
+      amount: tu.amount,
+      status: 'synced',
+      detail: tu.note || '',
+      created_at: tu.created_at,
+    }))
+    return [...sales, ...topUps].sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    )
+  }, [salesLog, topUpsLog])
+
+  function statusLabel(status) {
+    if (status === 'pending') return t.statusPending
+    if (status === 'synced') return t.statusSynced
+    if (status === 'failed') return t.statusFailed
+    return status
+  }
 
   function openCheckout() {
     if (cartItems.length === 0) return
@@ -242,8 +278,18 @@ export default function App() {
     setTopUpBusy(true)
     setTopUpError('')
     try {
-      const updated = await topUpWorker(topUpWorkerFound.id, amount, topUpNote.trim())
+      const note = topUpNote.trim()
+      const updated = await topUpWorker(topUpWorkerFound.id, amount, note)
       await setWorkerBalanceLocally(topUpWorkerFound.employee_id, updated.balance)
+      await logTopUp({
+        id: uuid(),
+        workerEmployeeId: topUpWorkerFound.employee_id,
+        workerName: updated.name,
+        amount,
+        note,
+        balanceAfter: updated.balance,
+      })
+      await refreshPendingCount()
       closeTopUp()
       setDialog({
         title: t.topUpComplete,
@@ -272,51 +318,63 @@ export default function App() {
           <button className="pill topup-btn" onClick={openTopUp}>
             {t.topUp}
           </button>
-          <button className="pill" onClick={() => setShowSyncPanel((v) => !v)}>
-            {showSyncPanel ? '▲' : '▼'} {pendingCount} {t.pendingSales}
-          </button>
         </div>
       </header>
+
+      <div className="topbar-tabs">
+        <button
+          className={`tab-btn ${view === 'shop' ? 'active' : ''}`}
+          onClick={() => setView('shop')}
+        >
+          {t.tabShop}
+        </button>
+        <button
+          className={`tab-btn ${view === 'transactions' ? 'active' : ''}`}
+          onClick={() => setView('transactions')}
+        >
+          {t.tabTransactions}{pendingCount ? ` (${pendingCount})` : ''}
+        </button>
+      </div>
 
       {syncMessage && <div className="sync-message">{syncMessage}</div>}
       <div className="last-synced">
         {t.lastSynced}: {lastSyncAt ? new Date(lastSyncAt).toLocaleString() : t.never}
       </div>
 
-      {showSyncPanel && (
-        <div className="sync-panel">
-          {salesLog.length === 0 ? (
-            <div className="sync-panel-empty">No transactions yet.</div>
+      {!everSynced && <div className="banner">{t.staleBanner}</div>}
+
+      {view === 'transactions' ? (
+        <div className="tx-panel">
+          {transactions.length === 0 ? (
+            <div className="sync-panel-empty">{t.noTransactions}</div>
           ) : (
             <table className="sync-table">
               <thead>
                 <tr>
-                  <th>Worker</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Error</th>
+                  <th>{t.colType}</th>
+                  <th>{t.colWorker}</th>
+                  <th>{t.colAmount}</th>
+                  <th>{t.colStatus}</th>
+                  <th>{t.colDetail}</th>
+                  <th>{t.colCreated}</th>
                 </tr>
               </thead>
               <tbody>
-                {salesLog.map((s) => (
-                  <tr key={s.client_record_id} className={`row-${s.status}`}>
-                    <td>{s.worker_employee_id}</td>
-                    <td>{s.total.toFixed(2)}</td>
-                    <td>{s.status}</td>
-                    <td>{new Date(s.created_at).toLocaleString()}</td>
-                    <td>{s.error || ''}</td>
+                {transactions.map((tx) => (
+                  <tr key={tx.key} className={`row-${tx.status}`}>
+                    <td>{tx.kind === 'topup' ? t.topUpLabel : t.saleLabel}</td>
+                    <td>{tx.worker}</td>
+                    <td>{tx.amount.toFixed(2)}</td>
+                    <td>{statusLabel(tx.status)}</td>
+                    <td>{tx.detail}</td>
+                    <td>{new Date(tx.created_at).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
         </div>
-      )}
-
-      {!everSynced && <div className="banner">{t.staleBanner}</div>}
-
-      {products.length === 0 ? (
+      ) : products.length === 0 ? (
         <div className="empty">{t.noProductsCached}</div>
       ) : (
         <div className="product-grid">
@@ -361,14 +419,16 @@ export default function App() {
         </div>
       )}
 
-      <div className="checkout-bar">
-        <div className="total">
-          {t.total}: {total.toFixed(2)}
+      {view === 'shop' && (
+        <div className="checkout-bar">
+          <div className="total">
+            {t.total}: {total.toFixed(2)}
+          </div>
+          <button disabled={cartItems.length === 0} onClick={openCheckout}>
+            {t.confirmSale} ({cartItems.reduce((n, i) => n + i.qty, 0)})
+          </button>
         </div>
-        <button disabled={cartItems.length === 0} onClick={openCheckout}>
-          {t.confirmSale} ({cartItems.reduce((n, i) => n + i.qty, 0)})
-        </button>
-      </div>
+      )}
 
       {checkoutOpen && (
         <div className="dialog-overlay" onClick={closeCheckout}>

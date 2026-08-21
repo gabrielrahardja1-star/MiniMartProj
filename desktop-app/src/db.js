@@ -42,6 +42,17 @@ export async function initDb() {
     );
   `)
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS topups (
+      id TEXT PRIMARY KEY,
+      worker_employee_id TEXT NOT NULL,
+      worker_name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      note TEXT,
+      balance_after REAL NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `)
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS meta (
       key TEXT PRIMARY KEY,
       value TEXT
@@ -155,4 +166,18 @@ export async function markSaleFailed(clientRecordId, error) {
     "UPDATE sales SET status = 'failed', error = $2 WHERE client_record_id = $1",
     [clientRecordId, error]
   )
+}
+
+export async function logTopUp({ id, workerEmployeeId, workerName, amount, note, balanceAfter }) {
+  const db = await getDb()
+  await db.execute(
+    `INSERT INTO topups (id, worker_employee_id, worker_name, amount, note, balance_after, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, workerEmployeeId, workerName, amount, note || null, balanceAfter, new Date().toISOString()]
+  )
+}
+
+export async function getAllTopUps() {
+  const db = await getDb()
+  return db.select('SELECT * FROM topups ORDER BY created_at DESC')
 }
