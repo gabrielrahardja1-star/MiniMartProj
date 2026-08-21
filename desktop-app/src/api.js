@@ -80,3 +80,31 @@ export async function topUpWorker(workerId, amount, note) {
     throw err
   }
 }
+
+export async function refundOrder(orderId) {
+  let token = await ensureToken()
+  const path = `/api/admin/orders/${orderId}/refund`
+  try {
+    return await request(path, { method: 'POST', token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { method: 'POST', token })
+    }
+    throw err
+  }
+}
+
+export async function reverseTopUp(transactionId) {
+  let token = await ensureToken()
+  const path = `/api/admin/wallet-transactions/${transactionId}/reverse`
+  try {
+    return await request(path, { method: 'POST', token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { method: 'POST', token })
+    }
+    throw err
+  }
+}

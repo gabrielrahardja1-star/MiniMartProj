@@ -15,10 +15,13 @@ from app.schemas.admin import (
     ProductUpdateRequest,
     OrderAdminOut,
     OrderItemAdminOut,
+    OrderRefundResult,
     WorkerOut,
     WorkerCreateRequest,
     WorkerUpdateRequest,
     WorkerSpending,
+    WalletTopUpResult,
+    WalletReversalResult,
 )
 from app.schemas.wallet import WalletTopUpRequest, WalletTransactionOut
 from app.core.security import hash_pin
@@ -240,6 +243,76 @@ def cancel_order(
     return _build_order_out(order)
 
 
+@router.post("/orders/{order_id}/refund", response_model=OrderRefundResult)
+def refund_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    admin: Worker = Depends(require_admin),
+):
+    """Reverses a cashier-till sale: restores stock, refunds the worker's
+    wallet, and logs it. This is the "undo" for a synced till sale — the
+    precise inverse of create_cashier_sale. Only wallet-paid orders (i.e.
+    cashier-till sales) are eligible; QRIS-paid web pre-orders use a
+    different flow (cancel_order above)."""
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.id == order_id)
+        .with_for_update()
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Order already refunded")
+    if order.payment_method != "wallet":
+        raise HTTPException(status_code=400, detail="Only wallet-paid orders can be refunded this way")
+
+    for item in order.items:
+        product = (
+            db.query(Product)
+            .filter(Product.id == item.product_id)
+            .with_for_update()
+            .first()
+        )
+        if product:
+            product.stock += item.quantity
+
+    worker = (
+        db.query(Worker)
+        .filter(Worker.id == order.worker_id)
+        .with_for_update()
+        .first()
+    )
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    worker.balance = round(float(worker.balance) + float(order.total), 2)
+    db.add(WalletTransaction(
+        worker_id=worker.id,
+        type="refund",
+        amount=float(order.total),
+        balance_after=worker.balance,
+        order_id=order.id,
+        performed_by_worker_id=admin.id,
+        note="Cashier sale refund",
+    ))
+
+    order.status = "cancelled"
+    order.payment_status = "refunded"
+    order.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(worker)
+    return OrderRefundResult(
+        order_id=order.id,
+        worker_id=worker.id,
+        worker_employee_id=worker.employee_id,
+        worker_balance=float(worker.balance),
+        refunded_amount=float(order.total),
+    )
+
+
 # ── Workers ───────────────────────────────────────────────────────────────────
 
 @router.get("/workers/", response_model=list[WorkerOut])
@@ -295,7 +368,7 @@ def admin_update_worker(
     return worker
 
 
-@router.post("/workers/{worker_id}/topup", response_model=WorkerOut)
+@router.post("/workers/{worker_id}/topup", response_model=WalletTopUpResult)
 def admin_top_up_worker(
     worker_id: int,
     body: WalletTopUpRequest,
@@ -315,17 +388,19 @@ def admin_top_up_worker(
 
     amount = round(float(body.amount), 2)
     worker.balance = round(float(worker.balance) + amount, 2)
-    db.add(WalletTransaction(
+    tx = WalletTransaction(
         worker_id=worker.id,
         type="topup",
         amount=amount,
         balance_after=worker.balance,
         performed_by_worker_id=admin.id,
         note=body.note,
-    ))
+    )
+    db.add(tx)
     db.commit()
     db.refresh(worker)
-    return worker
+    db.refresh(tx)
+    return WalletTopUpResult(worker=worker, transaction=tx)
 
 
 @router.get("/workers/{worker_id}/transactions", response_model=list[WalletTransactionOut])
@@ -342,6 +417,63 @@ def admin_worker_transactions(
         .filter(WalletTransaction.worker_id == worker.id)
         .order_by(WalletTransaction.created_at.desc(), WalletTransaction.id.desc())
         .all()
+    )
+
+
+@router.post("/wallet-transactions/{tx_id}/reverse", response_model=WalletReversalResult)
+def reverse_wallet_transaction(
+    tx_id: int,
+    db: Session = Depends(get_db),
+    admin: Worker = Depends(require_admin),
+):
+    """Reverses a top-up: this is the "undo" for a wallet top-up. Debits
+    back the credited amount (deliberately allowed to go negative — this is
+    an administrative correction undoing a mistaken credit, not a purchase,
+    so there is no floor check here on purpose) and logs a 'reversal'
+    transaction. Guarded by tx.reversed so the same top-up can't be
+    reversed twice."""
+    tx = (
+        db.query(WalletTransaction)
+        .filter(WalletTransaction.id == tx_id)
+        .with_for_update()
+        .first()
+    )
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if tx.type != "topup":
+        raise HTTPException(status_code=400, detail="Only top-ups can be reversed this way")
+    if tx.reversed:
+        raise HTTPException(status_code=400, detail="This top-up has already been reversed")
+
+    worker = (
+        db.query(Worker)
+        .filter(Worker.id == tx.worker_id)
+        .with_for_update()
+        .first()
+    )
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    worker.balance = round(float(worker.balance) - float(tx.amount), 2)
+    tx.reversed = True
+    db.add(WalletTransaction(
+        worker_id=worker.id,
+        type="reversal",
+        amount=float(tx.amount),
+        balance_after=worker.balance,
+        order_id=None,
+        performed_by_worker_id=admin.id,
+        note=f"Reversal of top-up #{tx.id}",
+    ))
+
+    db.commit()
+    db.refresh(worker)
+    return WalletReversalResult(
+        transaction_id=tx.id,
+        worker_id=worker.id,
+        worker_employee_id=worker.employee_id,
+        worker_balance=float(worker.balance),
+        reversed_amount=float(tx.amount),
     )
 
 

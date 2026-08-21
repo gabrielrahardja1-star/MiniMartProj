@@ -5,6 +5,7 @@ import {
   getPendingSales,
   markSaleSynced,
   markSaleFailed,
+  setSaleServerOrderId,
   setMeta,
 } from './db'
 
@@ -39,6 +40,7 @@ export async function pushPendingSales() {
     for (const r of res.results) {
       if (r.status === 'synced') {
         await markSaleSynced(r.client_record_id)
+        await setSaleServerOrderId(r.client_record_id, r.server_order_id)
         synced++
       } else {
         await markSaleFailed(r.client_record_id, r.error || 'Server rejected sale')

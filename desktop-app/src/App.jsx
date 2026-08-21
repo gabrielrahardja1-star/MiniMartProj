@@ -5,16 +5,21 @@ import {
   getAllProducts,
   getAllWorkers,
   decrementStockLocally,
+  incrementStockLocally,
   decrementWorkerBalanceLocally,
+  incrementWorkerBalanceLocally,
   setWorkerBalanceLocally,
   queueSale,
   getPendingSales,
   getAllSales,
   logTopUp,
   getAllTopUps,
+  markSaleRefunded,
+  deleteSale,
+  markTopUpReversed,
 } from './db'
 import { pullMasterData, pushPendingSales } from './sync'
-import { topUpWorker } from './api'
+import { topUpWorker, refundOrder, reverseTopUp } from './api'
 import { strings, nextLang } from './strings'
 import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS, resolveImageUrl } from './config'
 import { fuzzySearchWorkers } from './fuzzy'
@@ -81,6 +86,14 @@ export default function App() {
   const [topUpNote, setTopUpNote] = useState('')
   const [topUpError, setTopUpError] = useState('')
   const [topUpBusy, setTopUpBusy] = useState(false)
+
+  // Undo (and "Edit" = undo + re-open the entry flow pre-filled) for the
+  // Transactions tab. undoConfirm holds { tx } while the confirm dialog is
+  // open; performUndo() does the actual server/local reversal and is
+  // shared by both the confirm-dialog path and the Edit path.
+  const [undoConfirm, setUndoConfirm] = useState(null) // { tx } or null
+  const [undoBusy, setUndoBusy] = useState(false)
+  const [undoError, setUndoError] = useState('')
 
   const refreshPendingCount = useCallback(async () => {
     const pending = await getPendingSales()
@@ -196,15 +209,17 @@ export default function App() {
       status: s.status,
       detail: s.error || '',
       created_at: s.created_at,
+      raw: s,
     }))
     const topUps = topUpsLog.map((tu) => ({
       key: `topup-${tu.id}`,
       kind: 'topup',
       worker: `${tu.worker_name} (${tu.worker_employee_id})`,
       amount: tu.amount,
-      status: 'synced',
+      status: tu.reversed ? 'reversed' : 'synced',
       detail: tu.note || '',
       created_at: tu.created_at,
+      raw: tu,
     }))
     return [...sales, ...topUps].sort(
       (a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -215,7 +230,118 @@ export default function App() {
     if (status === 'pending') return t.statusPending
     if (status === 'synced') return t.statusSynced
     if (status === 'failed') return t.statusFailed
+    if (status === 'refunded') return t.statusRefunded
+    if (status === 'reversed') return t.statusReversed
     return status
+  }
+
+  // A sale is undo-able unless it's already been refunded; a top-up is
+  // undo-able unless it's already been reversed. "Edit" shares the same
+  // eligibility as Undo, since it performs Undo first.
+  function undoEligible(tx) {
+    if (tx.kind === 'sale') return tx.status !== 'refunded'
+    return !tx.raw.reversed
+  }
+
+  function undoWorkerLabel(tx) {
+    if (tx.kind === 'topup') return tx.worker
+    const w = workers.find((w) => w.employee_id === tx.raw.worker_employee_id)
+    return w ? w.name : tx.raw.worker_employee_id
+  }
+
+  function undoMessageFor(tx) {
+    const worker = undoWorkerLabel(tx)
+    const amount = tx.amount.toFixed(2)
+    if (tx.kind === 'sale') {
+      if (tx.status === 'synced') {
+        return t.undoSaleSyncedMsg.replace('{amount}', amount).replace('{worker}', worker)
+      }
+      return t.undoSaleLocalMsg
+    }
+    return t.undoTopUpMsg.replace('{amount}', amount).replace('{worker}', worker)
+  }
+
+  function requestUndo(tx) {
+    setUndoError('')
+    setUndoConfirm({ tx })
+  }
+
+  // Shared by the confirm-dialog Confirm button and by "Edit" (which skips
+  // the confirmation — choosing Edit is itself the deliberate action).
+  // Throws on failure; callers decide how to surface the error.
+  async function performUndo(tx) {
+    if (tx.kind === 'sale') {
+      if (tx.status === 'synced') {
+        await refundOrder(tx.raw.server_order_id)
+        await markSaleRefunded(tx.raw.client_record_id)
+        // Full resync is the simplest correct way to reflect the server's
+        // authoritative stock/balance changes, rather than trying to patch
+        // every affected product locally.
+        await pullMasterData()
+      } else {
+        const items = JSON.parse(tx.raw.items_json)
+        for (const item of items) {
+          await incrementStockLocally(item.product_id, item.quantity)
+        }
+        await incrementWorkerBalanceLocally(tx.raw.worker_employee_id, tx.raw.total)
+        await deleteSale(tx.raw.client_record_id)
+      }
+    } else if (tx.kind === 'topup') {
+      const result = await reverseTopUp(tx.raw.transaction_id)
+      await setWorkerBalanceLocally(tx.raw.worker_employee_id, result.worker_balance)
+      await markTopUpReversed(tx.raw.id)
+    }
+    await refreshProducts()
+    await refreshWorkers()
+    await refreshPendingCount()
+  }
+
+  async function confirmUndo() {
+    if (!undoConfirm) return
+    const { tx } = undoConfirm
+    setUndoBusy(true)
+    setUndoError('')
+    try {
+      await performUndo(tx)
+      setUndoConfirm(null)
+      setDialog({ title: t.undoDone, body: t.undoDoneBody })
+    } catch (err) {
+      setUndoError(`${t.undoFailed}: ${err.message}`)
+    } finally {
+      setUndoBusy(false)
+    }
+  }
+
+  // "Edit" = undo the wrong entry, then re-open the relevant entry flow
+  // pre-filled with the old transaction's data so the cashier doesn't have
+  // to retype everything. No confirm step: choosing "Edit" is already a
+  // deliberate action.
+  async function requestEdit(tx) {
+    try {
+      await performUndo(tx)
+    } catch (err) {
+      setDialog({ title: t.undoFailed, body: err.message })
+      return
+    }
+    if (tx.kind === 'sale') {
+      const items = JSON.parse(tx.raw.items_json)
+      const freshProducts = await getAllProducts()
+      const newCart = {}
+      for (const item of items) {
+        if (freshProducts.some((p) => p.id === item.product_id)) {
+          newCart[item.product_id] = item.quantity
+        }
+      }
+      setCart(newCart)
+      setView('shop')
+    } else if (tx.kind === 'topup') {
+      const freshWorkers = await getAllWorkers()
+      const worker = freshWorkers.find((w) => w.employee_id === tx.raw.worker_employee_id)
+      setTopUpWorkerFound(worker || null)
+      setTopUpAmount(String(tx.raw.amount))
+      setTopUpNote(tx.raw.note || '')
+      setTopUpOpen(true)
+    }
   }
 
   function openCheckout() {
@@ -327,22 +453,23 @@ export default function App() {
     setTopUpError('')
     try {
       const note = topUpNote.trim()
-      const updated = await topUpWorker(topUpWorkerFound.id, amount, note)
-      await setWorkerBalanceLocally(topUpWorkerFound.employee_id, updated.balance)
+      const result = await topUpWorker(topUpWorkerFound.id, amount, note)
+      await setWorkerBalanceLocally(topUpWorkerFound.employee_id, result.worker.balance)
       await logTopUp({
         id: uuid(),
         workerEmployeeId: topUpWorkerFound.employee_id,
-        workerName: updated.name,
+        workerName: result.worker.name,
         amount,
         note,
-        balanceAfter: updated.balance,
+        balanceAfter: result.worker.balance,
+        transactionId: result.transaction.id,
       })
       await refreshWorkers()
       await refreshPendingCount()
       closeTopUp()
       setDialog({
         title: t.topUpComplete,
-        body: `${updated.name}: +${amount.toFixed(2)}. ${t.newBalance}: ${updated.balance.toFixed(2)}.`,
+        body: `${result.worker.name}: +${amount.toFixed(2)}. ${t.newBalance}: ${result.worker.balance.toFixed(2)}.`,
       })
     } catch (err) {
       setTopUpError(`${t.topUpFailed}: ${err.message}`)
@@ -412,19 +539,39 @@ export default function App() {
                   <th>{t.colStatus}</th>
                   <th>{t.colDetail}</th>
                   <th>{t.colCreated}</th>
+                  <th>{t.colAction}</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.key} className={`row-${tx.status}`}>
-                    <td>{tx.kind === 'topup' ? t.topUpLabel : t.saleLabel}</td>
-                    <td>{tx.worker}</td>
-                    <td>{tx.amount.toFixed(2)}</td>
-                    <td>{statusLabel(tx.status)}</td>
-                    <td>{tx.detail}</td>
-                    <td>{new Date(tx.created_at).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {transactions.map((tx) => {
+                  const eligible = undoEligible(tx)
+                  return (
+                    <tr key={tx.key} className={`row-${tx.status}`}>
+                      <td>{tx.kind === 'topup' ? t.topUpLabel : t.saleLabel}</td>
+                      <td>{tx.worker}</td>
+                      <td>{tx.amount.toFixed(2)}</td>
+                      <td>{statusLabel(tx.status)}</td>
+                      <td>{tx.detail}</td>
+                      <td>{new Date(tx.created_at).toLocaleString()}</td>
+                      <td className="tx-actions">
+                        <button
+                          className="tx-action-btn"
+                          disabled={!eligible}
+                          onClick={() => requestEdit(tx)}
+                        >
+                          {t.edit}
+                        </button>
+                        <button
+                          className="tx-action-btn tx-action-undo"
+                          disabled={!eligible}
+                          onClick={() => requestUndo(tx)}
+                        >
+                          {t.undo}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
@@ -591,6 +738,25 @@ export default function App() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {undoConfirm && (
+        <div className="dialog-overlay" onClick={() => !undoBusy && setUndoConfirm(null)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>{t.undoConfirmTitle}</h2>
+            <p>{undoMessageFor(undoConfirm.tx)}</p>
+            <p className="undo-warning">{t.undoIrreversible}</p>
+            {undoError && <div className="error">{undoError}</div>}
+            <div className="dialog-actions">
+              <button className="secondary" onClick={() => setUndoConfirm(null)} disabled={undoBusy}>
+                {t.cancel}
+              </button>
+              <button onClick={confirmUndo} disabled={undoBusy}>
+                {t.confirmUndo}
+              </button>
+            </div>
           </div>
         </div>
       )}

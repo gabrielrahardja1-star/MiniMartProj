@@ -10,6 +10,7 @@ const typeStyle = {
   topup: { bg: T.goodSoft, fg: T.good, label: 'Top-up' },
   payment: { bg: T.badSoft, fg: T.bad, label: 'Payment' },
   refund: { bg: T.brandSoft, fg: T.brand, label: 'Refund' },
+  reversal: { bg: T.badSoft, fg: T.bad, label: 'Reversal' },
 }
 
 export default function WalletLedger() {
@@ -105,7 +106,7 @@ export default function WalletLedger() {
           }}>No wallet transactions yet.</div>
         ) : transactions.map(tx => {
           const style = typeStyle[tx.type] || { bg: T.surfaceAlt, fg: T.ink2, label: tx.type }
-          const sign = tx.type === 'payment' ? '-' : '+'
+          const sign = ['payment', 'reversal'].includes(tx.type) ? '-' : '+'
           return (
             <div key={tx.id} style={{
               background: T.surface, borderRadius: 16, padding: 14,

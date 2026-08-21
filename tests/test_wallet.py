@@ -29,7 +29,8 @@ def test_admin_topup_credits_balance_and_creates_ledger(client, admin_token, wor
     )
 
     assert resp.status_code == 200
-    assert resp.json()["balance"] == 100000
+    assert resp.json()["worker"]["balance"] == 100000
+    assert resp.json()["transaction"]["type"] == "topup"
     db_session.refresh(worker)
     assert float(worker.balance) == 100000
 

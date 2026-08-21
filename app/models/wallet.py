@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -15,6 +15,7 @@ class WalletTransaction(Base):
     order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"), nullable=True)
     performed_by_worker_id: Mapped[int] = mapped_column(ForeignKey("workers.id"), nullable=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reversed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
     worker: Mapped["Worker"] = relationship(
