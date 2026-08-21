@@ -238,9 +238,18 @@ export default function App() {
   // A sale is undo-able unless it's already been refunded; a top-up is
   // undo-able unless it's already been reversed. "Edit" shares the same
   // eligibility as Undo, since it performs Undo first.
+  //
+  // Transactions made before this Undo feature existed don't have a
+  // server_order_id / transaction_id recorded locally (the old app version
+  // never stored one), so there's nothing to reverse them against — treat
+  // those as not undo-able rather than sending a request that 422s.
   function undoEligible(tx) {
-    if (tx.kind === 'sale') return tx.status !== 'refunded'
-    return !tx.raw.reversed
+    if (tx.kind === 'sale') {
+      if (tx.status === 'refunded') return false
+      if (tx.status === 'synced') return tx.raw.server_order_id != null
+      return true
+    }
+    return !tx.raw.reversed && tx.raw.transaction_id != null
   }
 
   function undoWorkerLabel(tx) {
