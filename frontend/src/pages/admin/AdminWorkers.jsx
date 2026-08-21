@@ -26,14 +26,14 @@ function Field({ label, children }) {
 // ── Add / Edit Worker sheet ───────────────────────────────────────────────────
 function WorkerSheet({ worker, open, onClose, onSaved }) {
   const isEdit = !!worker
-  const [form, setForm] = useState({ employee_id: '', name: '', pin: '', pin_confirm: '' })
+  const [form, setForm] = useState({ employee_id: '', hr_employee_id: '', name: '', pin: '', pin_confirm: '' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
       setForm(worker
-        ? { employee_id: worker.employee_id, name: worker.name, pin: '', pin_confirm: '' }
-        : { employee_id: '', name: '', pin: '', pin_confirm: '' }
+        ? { employee_id: worker.employee_id, hr_employee_id: worker.hr_employee_id || '', name: worker.name, pin: '', pin_confirm: '' }
+        : { employee_id: '', hr_employee_id: '', name: '', pin: '', pin_confirm: '' }
       )
     }
   }, [open, worker])
@@ -48,13 +48,14 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
     setSaving(true)
     try {
       if (isEdit) {
-        const payload = { name: form.name }
+        const payload = { name: form.name, hr_employee_id: form.hr_employee_id.trim() || null }
         if (form.pin) payload.pin = form.pin
         await api.patch(`/admin/workers/${worker.id}`, payload)
         toast.success('Worker updated')
       } else {
         await api.post('/admin/workers/', {
           employee_id: form.employee_id.trim().toUpperCase(),
+          hr_employee_id: form.hr_employee_id.trim() || null,
           name: form.name.trim(),
           pin: form.pin,
         })
@@ -117,6 +118,15 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
               placeholder="e.g. W001"
               disabled={isEdit}
               style={{ ...inputSt, opacity: isEdit ? 0.5 : 1 }}
+            />
+          </Field>
+
+          <Field label="HR / payroll ID (optional)">
+            <input
+              value={form.hr_employee_id}
+              onChange={e => setForm(f => ({ ...f, hr_employee_id: e.target.value }))}
+              placeholder="e.g. MMI-B220042"
+              style={inputSt}
             />
           </Field>
 
@@ -389,7 +399,7 @@ export default function AdminWorkers() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>{w.name}</div>
                   <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
-                    {w.employee_id} · {formatCurrency(w.balance || 0)}
+                    {w.employee_id}{w.hr_employee_id ? ` (${w.hr_employee_id})` : ''} · {formatCurrency(w.balance || 0)}
                   </div>
                 </div>
                 <div style={{

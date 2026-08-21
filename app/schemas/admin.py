@@ -57,6 +57,7 @@ class OrderAdminOut(BaseModel):
 class WorkerOut(BaseModel):
     id: int
     employee_id: str
+    hr_employee_id: str | None = None
     name: str
     role: str
     is_active: bool
@@ -67,18 +68,21 @@ class WorkerOut(BaseModel):
 
 class WorkerCreateRequest(BaseModel):
     employee_id: str
+    hr_employee_id: str | None = None
     name: str
     pin: str
 
 
 class WorkerUpdateRequest(BaseModel):
     name: str | None = None
+    hr_employee_id: str | None = None
     pin: str | None = None
     is_active: bool | None = None
 
 
 class WorkerSpending(BaseModel):
     employee_id: str
+    hr_employee_id: str | None = None
     name: str
     total_deduction: float
     order_count: int

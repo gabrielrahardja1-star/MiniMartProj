@@ -245,6 +245,7 @@ def admin_create_worker(
         raise HTTPException(status_code=409, detail=f"Employee ID '{body.employee_id}' already exists")
     worker = Worker(
         employee_id=body.employee_id,
+        hr_employee_id=body.hr_employee_id,
         name=body.name,
         pin_hash=hash_pin(body.pin),
         role="worker",
@@ -268,6 +269,8 @@ def admin_update_worker(
         raise HTTPException(status_code=404, detail="Worker not found")
     if body.name is not None:
         worker.name = body.name
+    if body.hr_employee_id is not None:
+        worker.hr_employee_id = body.hr_employee_id
     if body.pin is not None:
         worker.pin_hash = hash_pin(body.pin)
     if body.is_active is not None:
@@ -355,6 +358,7 @@ def spending_report(
         if worker.id not in totals:
             totals[worker.id] = WorkerSpending(
                 employee_id=worker.employee_id,
+                hr_employee_id=worker.hr_employee_id,
                 name=worker.name,
                 total_deduction=0.0,
                 order_count=0,
@@ -392,13 +396,17 @@ def spending_report_csv(
             totals[worker.id] = {
                 "worker_name": worker.name,
                 "employee_id": worker.employee_id,
+                "hr_employee_id": worker.hr_employee_id or "",
                 "total_deduction": 0.0,
                 "month": month or (date_from.strftime("%Y-%m") if date_from else "all"),
             }
         totals[worker.id]["total_deduction"] += float(order.total)
 
     buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=["worker_name", "employee_id", "total_deduction", "month"])
+    writer = csv.DictWriter(
+        buf,
+        fieldnames=["worker_name", "employee_id", "hr_employee_id", "total_deduction", "month"],
+    )
     writer.writeheader()
     for row in sorted(totals.values(), key=lambda r: r["employee_id"]):
         row["total_deduction"] = round(row["total_deduction"], 2)
