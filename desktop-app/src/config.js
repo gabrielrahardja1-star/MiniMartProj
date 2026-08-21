@@ -7,3 +7,9 @@ export const DEVICE_PIN = import.meta.env.VITE_DEVICE_PIN || '0000'
 
 export const LOW_STOCK_THRESHOLD = 5
 export const SYNC_INTERVAL_MS = 60_000
+
+export function resolveImageUrl(imageUrl) {
+  if (!imageUrl) return null
+  if (/^https?:\/\//.test(imageUrl)) return imageUrl
+  return `${API_BASE_URL}${imageUrl}`
+}

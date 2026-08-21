@@ -12,7 +12,7 @@ import {
 } from './db'
 import { pullMasterData, pushPendingSales } from './sync'
 import { strings, nextLang } from './strings'
-import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS } from './config'
+import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS, resolveImageUrl } from './config'
 
 function uuid() {
   return crypto.randomUUID()
@@ -261,7 +261,7 @@ export default function App() {
             return (
               <div className="product-card" key={p.id}>
                 {p.image_url ? (
-                  <img src={p.image_url} alt={primaryName} />
+                  <img src={resolveImageUrl(p.image_url)} alt={primaryName} />
                 ) : (
                   <div className="product-img-placeholder" />
                 )}
