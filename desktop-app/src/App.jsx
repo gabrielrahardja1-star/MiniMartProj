@@ -3,7 +3,7 @@ import {
   initDb,
   getMeta,
   getAllProducts,
-  findWorkerByEmployeeId,
+  getAllWorkers,
   decrementStockLocally,
   decrementWorkerBalanceLocally,
   setWorkerBalanceLocally,
@@ -17,9 +17,26 @@ import { pullMasterData, pushPendingSales } from './sync'
 import { topUpWorker } from './api'
 import { strings, nextLang } from './strings'
 import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS, resolveImageUrl } from './config'
+import { fuzzySearchWorkers } from './fuzzy'
 
 function uuid() {
   return crypto.randomUUID()
+}
+
+function WorkerResults({ results, onSelect, emptyLabel }) {
+  if (results.length === 0) {
+    return emptyLabel ? <div className="worker-results-empty">{emptyLabel}</div> : null
+  }
+  return (
+    <div className="worker-results">
+      {results.map((w) => (
+        <div key={w.id} className="worker-result" onClick={() => onSelect(w)}>
+          <div className="worker-result-name">{w.name}</div>
+          <div className="worker-result-id">{w.employee_id}</div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function App() {
@@ -33,6 +50,7 @@ export default function App() {
   const [view, setView] = useState('shop') // 'shop' | 'transactions'
 
   const [products, setProducts] = useState([])
+  const [workers, setWorkers] = useState([])
   const [cart, setCart] = useState({}) // productId -> qty
 
   const [pendingCount, setPendingCount] = useState(0)
@@ -42,17 +60,21 @@ export default function App() {
   const [topUpsLog, setTopUpsLog] = useState([])
 
   // Worker is looked up only at checkout time, not at app start — the
-  // cashier rings up items against the catalog first, and only enters
-  // the Employee ID being charged when closing out the sale.
+  // cashier rings up items against the catalog first, and only searches
+  // for the worker to charge when closing out the sale. Search -> select
+  // -> confirm is a deliberate two-step flow so a fat-fingered ID doesn't
+  // silently charge the wrong person (hundreds of workers share ID
+  // prefixes like WANG84/WANG85/WANG86).
   const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [checkoutIdInput, setCheckoutIdInput] = useState('')
+  const [checkoutQuery, setCheckoutQuery] = useState('')
+  const [checkoutWorker, setCheckoutWorker] = useState(null)
   const [checkoutError, setCheckoutError] = useState('')
   const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   const [dialog, setDialog] = useState(null) // { title, body }
 
   const [topUpOpen, setTopUpOpen] = useState(false)
-  const [topUpIdInput, setTopUpIdInput] = useState('')
+  const [topUpQuery, setTopUpQuery] = useState('')
   const [topUpWorkerFound, setTopUpWorkerFound] = useState(null)
   const [topUpAmount, setTopUpAmount] = useState('')
   const [topUpNote, setTopUpNote] = useState('')
@@ -70,6 +92,10 @@ export default function App() {
     setProducts(await getAllProducts())
   }, [])
 
+  const refreshWorkers = useCallback(async () => {
+    setWorkers(await getAllWorkers())
+  }, [])
+
   useEffect(() => {
     ;(async () => {
       await initDb()
@@ -78,6 +104,7 @@ export default function App() {
       setEverSynced(!!lastPull)
       setLastSyncAt(lastSync)
       await refreshProducts()
+      await refreshWorkers()
       await refreshPendingCount()
       setReady(true)
       runSync(true)
@@ -100,6 +127,7 @@ export default function App() {
       setEverSynced(true)
       setLastSyncAt(new Date().toISOString())
       await refreshProducts()
+      await refreshWorkers()
       await refreshPendingCount()
       if (!silent) {
         setSyncMessage(
@@ -112,7 +140,7 @@ export default function App() {
     } finally {
       setSyncing(false)
     }
-  }, [t, refreshProducts, refreshPendingCount])
+  }, [t, refreshProducts, refreshWorkers, refreshPendingCount])
 
   function addToCart(product) {
     setCart((prev) => {
@@ -148,6 +176,16 @@ export default function App() {
     [cartItems]
   )
 
+  const checkoutResults = useMemo(
+    () => fuzzySearchWorkers(workers, checkoutQuery),
+    [workers, checkoutQuery]
+  )
+
+  const topUpResults = useMemo(
+    () => fuzzySearchWorkers(workers, topUpQuery),
+    [workers, topUpQuery]
+  )
+
   const transactions = useMemo(() => {
     const sales = salesLog.map((s) => ({
       key: `sale-${s.client_record_id}`,
@@ -181,28 +219,39 @@ export default function App() {
 
   function openCheckout() {
     if (cartItems.length === 0) return
-    setCheckoutIdInput('')
+    setCheckoutQuery('')
+    setCheckoutWorker(null)
     setCheckoutError('')
     setCheckoutOpen(true)
   }
 
   function closeCheckout() {
     setCheckoutOpen(false)
-    setCheckoutIdInput('')
+    setCheckoutQuery('')
+    setCheckoutWorker(null)
     setCheckoutError('')
   }
 
-  async function submitCheckout() {
-    const id = checkoutIdInput.trim()
-    if (!id) return
+  function selectCheckoutWorker(worker) {
+    setCheckoutWorker(worker)
+    setCheckoutError('')
+  }
+
+  function backToCheckoutSearch() {
+    setCheckoutWorker(null)
+    setCheckoutError('')
+  }
+
+  function checkoutSearchEnter() {
+    if (checkoutResults.length > 0) selectCheckoutWorker(checkoutResults[0])
+  }
+
+  async function confirmCheckout() {
+    const worker = checkoutWorker
+    if (!worker) return
     setCheckoutBusy(true)
     setCheckoutError('')
     try {
-      const worker = await findWorkerByEmployeeId(id)
-      if (!worker) {
-        setCheckoutError(t.workerNotFound)
-        return
-      }
       if (total > worker.balance) {
         setCheckoutError(`${t.insufficientBalance} (${worker.name}: ${worker.balance.toFixed(2)})`)
         return
@@ -230,6 +279,7 @@ export default function App() {
         body: `${worker.name}: charged ${total.toFixed(2)}. New balance: ${newBalance.toFixed(2)}.`,
       })
       await refreshProducts()
+      await refreshWorkers()
       await refreshPendingCount()
       runSync(true)
     } finally {
@@ -238,7 +288,7 @@ export default function App() {
   }
 
   function openTopUp() {
-    setTopUpIdInput('')
+    setTopUpQuery('')
     setTopUpWorkerFound(null)
     setTopUpAmount('')
     setTopUpNote('')
@@ -250,16 +300,13 @@ export default function App() {
     setTopUpOpen(false)
   }
 
-  async function lookUpTopUpWorker() {
-    const id = topUpIdInput.trim()
-    if (!id) return
-    setTopUpError('')
-    const worker = await findWorkerByEmployeeId(id)
-    if (!worker) {
-      setTopUpError(t.workerNotFound)
-      return
-    }
+  function selectTopUpWorker(worker) {
     setTopUpWorkerFound(worker)
+    setTopUpError('')
+  }
+
+  function topUpSearchEnter() {
+    if (topUpResults.length > 0) selectTopUpWorker(topUpResults[0])
   }
 
   function changeTopUpWorker() {
@@ -289,6 +336,7 @@ export default function App() {
         note,
         balanceAfter: updated.balance,
       })
+      await refreshWorkers()
       await refreshPendingCount()
       closeTopUp()
       setDialog({
@@ -435,20 +483,42 @@ export default function App() {
           <div className="dialog" onClick={(e) => e.stopPropagation()}>
             <h2>{t.chargeTitle}</h2>
             <p className="checkout-total">{t.total}: {total.toFixed(2)}</p>
-            <input
-              autoFocus
-              placeholder={t.employeeId}
-              value={checkoutIdInput}
-              onChange={(e) => setCheckoutIdInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submitCheckout()}
-            />
-            {checkoutError && <div className="error">{checkoutError}</div>}
-            <div className="dialog-actions">
-              <button className="secondary" onClick={closeCheckout}>{t.cancel}</button>
-              <button onClick={submitCheckout} disabled={checkoutBusy || !checkoutIdInput.trim()}>
-                {t.confirmSale}
-              </button>
-            </div>
+            {!checkoutWorker ? (
+              <>
+                <input
+                  autoFocus
+                  placeholder={t.searchWorkerPlaceholder}
+                  value={checkoutQuery}
+                  onChange={(e) => setCheckoutQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && checkoutSearchEnter()}
+                />
+                <WorkerResults
+                  results={checkoutResults}
+                  onSelect={selectCheckoutWorker}
+                  emptyLabel={checkoutQuery.trim() ? t.noMatches : ''}
+                />
+                {checkoutError && <div className="error">{checkoutError}</div>}
+                <div className="dialog-actions">
+                  <button className="secondary" onClick={closeCheckout}>{t.cancel}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="worker-confirm-card">
+                  <div className="worker-confirm-name">{checkoutWorker.name}</div>
+                  <div className="worker-confirm-id">{t.idLabel}: {checkoutWorker.employee_id}</div>
+                  <div className="worker-confirm-row">{t.currentBalance}: {checkoutWorker.balance.toFixed(2)}</div>
+                  <div className="worker-confirm-row">{t.balanceAfter}: {(checkoutWorker.balance - total).toFixed(2)}</div>
+                </div>
+                {checkoutError && <div className="error">{checkoutError}</div>}
+                <div className="dialog-actions">
+                  <button className="secondary" onClick={backToCheckoutSearch}>{t.change}</button>
+                  <button onClick={confirmCheckout} disabled={checkoutBusy}>
+                    {t.confirmCharge}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -461,25 +531,28 @@ export default function App() {
               <>
                 <input
                   autoFocus
-                  placeholder={t.employeeId}
-                  value={topUpIdInput}
-                  onChange={(e) => setTopUpIdInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && lookUpTopUpWorker()}
+                  placeholder={t.searchWorkerPlaceholder}
+                  value={topUpQuery}
+                  onChange={(e) => setTopUpQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && topUpSearchEnter()}
+                />
+                <WorkerResults
+                  results={topUpResults}
+                  onSelect={selectTopUpWorker}
+                  emptyLabel={topUpQuery.trim() ? t.noMatches : ''}
                 />
                 {topUpError && <div className="error">{topUpError}</div>}
                 <div className="dialog-actions">
                   <button className="secondary" onClick={closeTopUp}>{t.cancel}</button>
-                  <button onClick={lookUpTopUpWorker} disabled={!topUpIdInput.trim()}>
-                    {t.lookUpWorker}
-                  </button>
                 </div>
               </>
             ) : (
               <>
-                <p className="checkout-total">
-                  {topUpWorkerFound.name} ({t.idLabel}: {topUpWorkerFound.employee_id})
-                </p>
-                <p>{t.currentBalance}: {topUpWorkerFound.balance.toFixed(2)}</p>
+                <div className="worker-confirm-card">
+                  <div className="worker-confirm-name">{topUpWorkerFound.name}</div>
+                  <div className="worker-confirm-id">{t.idLabel}: {topUpWorkerFound.employee_id}</div>
+                  <div className="worker-confirm-row">{t.currentBalance}: {topUpWorkerFound.balance.toFixed(2)}</div>
+                </div>
                 <input
                   autoFocus
                   type="number"
@@ -489,6 +562,11 @@ export default function App() {
                   value={topUpAmount}
                   onChange={(e) => setTopUpAmount(e.target.value)}
                 />
+                {parseFloat(topUpAmount) > 0 && (
+                  <div className="worker-confirm-row">
+                    {t.newBalance}: {(topUpWorkerFound.balance + parseFloat(topUpAmount)).toFixed(2)}
+                  </div>
+                )}
                 <input
                   placeholder={t.noteOptional}
                   value={topUpNote}

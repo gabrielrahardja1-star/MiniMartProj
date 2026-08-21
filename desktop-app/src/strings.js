@@ -59,6 +59,10 @@ const STRINGS = {
     statusPending: 'pending',
     statusSynced: 'synced',
     statusFailed: 'failed',
+    searchWorkerPlaceholder: 'Search by name or ID',
+    noMatches: 'No matching workers',
+    confirmCharge: 'Confirm Charge',
+    balanceAfter: 'Balance after',
   },
   ZH: {
     title: '收银 — 新订单',
@@ -111,6 +115,10 @@ const STRINGS = {
     statusPending: '待处理',
     statusSynced: '已同步',
     statusFailed: '失败',
+    searchWorkerPlaceholder: '按姓名或编号搜索',
+    noMatches: '未找到匹配员工',
+    confirmCharge: '确认扣款',
+    balanceAfter: '扣款后余额',
   },
   ID: {
     title: 'Kasir — Penjualan Baru',
@@ -163,6 +171,10 @@ const STRINGS = {
     statusPending: 'tertunda',
     statusSynced: 'tersinkron',
     statusFailed: 'gagal',
+    searchWorkerPlaceholder: 'Cari berdasarkan nama atau ID',
+    noMatches: 'Tidak ada pekerja yang cocok',
+    confirmCharge: 'Konfirmasi Pembayaran',
+    balanceAfter: 'Saldo setelah',
   },
 }
 

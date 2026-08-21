@@ -76,3 +76,15 @@ body {
 .checkout-total { font-size: 16px; font-weight: 600; margin: 4px 0; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .dialog-actions button.secondary { background: #eee; color: #333; }
+
+.worker-results { max-height: 240px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; margin-top: 8px; }
+.worker-result { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f2f2f2; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.worker-result:last-child { border-bottom: none; }
+.worker-result:hover { background: #f7f9fc; }
+.worker-result-name { font-weight: 600; font-size: 14px; }
+.worker-result-id { font-size: 12px; color: #888; flex-shrink: 0; }
+.worker-results-empty { padding: 10px 12px; color: #888; font-size: 13px; margin-top: 8px; }
+.worker-confirm-card { background: #f7f9fc; border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
+.worker-confirm-name { font-size: 16px; font-weight: 700; }
+.worker-confirm-id { font-size: 12px; color: #888; margin-top: 2px; }
+.worker-confirm-row { font-size: 14px; margin-top: 6px; color: #333; }

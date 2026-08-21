@@ -112,6 +112,11 @@ export async function findWorkerByEmployeeId(employeeId) {
   return rows[0] ?? null
 }
 
+export async function getAllWorkers() {
+  const db = await getDb()
+  return db.select('SELECT * FROM workers ORDER BY name')
+}
+
 export async function decrementStockLocally(productId, qty) {
   const db = await getDb()
   await db.execute('UPDATE products SET stock = stock - $1 WHERE id = $2', [qty, productId])
