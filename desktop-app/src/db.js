@@ -114,6 +114,14 @@ export async function decrementWorkerBalanceLocally(employeeId, amount) {
   )
 }
 
+export async function setWorkerBalanceLocally(employeeId, balance) {
+  const db = await getDb()
+  await db.execute(
+    'UPDATE workers SET balance = $1 WHERE employee_id = $2',
+    [balance, employeeId]
+  )
+}
+
 export async function queueSale({ clientRecordId, workerEmployeeId, items, total }) {
   const db = await getDb()
   await db.execute(

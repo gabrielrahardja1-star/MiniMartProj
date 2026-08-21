@@ -25,6 +25,16 @@ uses, and authenticates as the same fixed device identity (`ADMIN001` /
   an empty catalog until it can reach the server once (Android ships a
   starter JSON for this; we didn't need that here since these are managed
   installs, not field tablets).
+- **Top Up button** in the top bar lets the cashier credit a worker's
+  balance with cash received on the spot, instead of sending them to the
+  admin web app. Looks the worker up in the locally cached directory, then
+  calls the existing `POST /api/admin/workers/{id}/topup` endpoint
+  directly — the till's device identity (`ADMIN001`) already has the
+  `admin` role, so no new backend endpoint was needed. Unlike sales,
+  top-ups are **not** queued for offline sync: they require a live
+  connection, since silently double-crediting a balance after a dropped
+  connection is a worse failure mode than telling the cashier to try
+  again once online.
 
 ## Local dev
 

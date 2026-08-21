@@ -65,3 +65,18 @@ export async function syncSales(sales) {
     throw err
   }
 }
+
+export async function topUpWorker(workerId, amount, note) {
+  let token = await ensureToken()
+  const body = { amount, note: note || null }
+  const path = `/api/admin/workers/${workerId}/topup`
+  try {
+    return await request(path, { method: 'POST', body, token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { method: 'POST', body, token })
+    }
+    throw err
+  }
+}

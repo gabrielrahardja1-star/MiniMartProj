@@ -14,6 +14,7 @@ body {
 .pill { border-radius: 999px; padding: 8px 16px; border: 1px solid #ccc; background: white; cursor: pointer; }
 .pill:disabled { opacity: 0.6; cursor: default; }
 .sync-btn { background: #2563eb; color: white; border: none; }
+.topup-btn { background: #16a34a; color: white; border: none; }
 
 .sync-message { font-size: 13px; color: #444; }
 .sync-panel { background: white; border-radius: 8px; padding: 8px; max-height: 160px; overflow-y: auto; }

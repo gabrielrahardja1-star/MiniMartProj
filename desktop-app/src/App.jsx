@@ -6,11 +6,13 @@ import {
   findWorkerByEmployeeId,
   decrementStockLocally,
   decrementWorkerBalanceLocally,
+  setWorkerBalanceLocally,
   queueSale,
   getPendingSales,
   getAllSales,
 } from './db'
 import { pullMasterData, pushPendingSales } from './sync'
+import { topUpWorker } from './api'
 import { strings, nextLang } from './strings'
 import { LOW_STOCK_THRESHOLD, SYNC_INTERVAL_MS, resolveImageUrl } from './config'
 
@@ -44,6 +46,14 @@ export default function App() {
   const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   const [dialog, setDialog] = useState(null) // { title, body }
+
+  const [topUpOpen, setTopUpOpen] = useState(false)
+  const [topUpIdInput, setTopUpIdInput] = useState('')
+  const [topUpWorkerFound, setTopUpWorkerFound] = useState(null)
+  const [topUpAmount, setTopUpAmount] = useState('')
+  const [topUpNote, setTopUpNote] = useState('')
+  const [topUpError, setTopUpError] = useState('')
+  const [topUpBusy, setTopUpBusy] = useState(false)
 
   const refreshPendingCount = useCallback(async () => {
     const pending = await getPendingSales()
@@ -191,6 +201,61 @@ export default function App() {
     }
   }
 
+  function openTopUp() {
+    setTopUpIdInput('')
+    setTopUpWorkerFound(null)
+    setTopUpAmount('')
+    setTopUpNote('')
+    setTopUpError('')
+    setTopUpOpen(true)
+  }
+
+  function closeTopUp() {
+    setTopUpOpen(false)
+  }
+
+  async function lookUpTopUpWorker() {
+    const id = topUpIdInput.trim()
+    if (!id) return
+    setTopUpError('')
+    const worker = await findWorkerByEmployeeId(id)
+    if (!worker) {
+      setTopUpError(t.workerNotFound)
+      return
+    }
+    setTopUpWorkerFound(worker)
+  }
+
+  function changeTopUpWorker() {
+    setTopUpWorkerFound(null)
+    setTopUpAmount('')
+    setTopUpNote('')
+    setTopUpError('')
+  }
+
+  async function submitTopUp() {
+    const amount = parseFloat(topUpAmount)
+    if (!topUpWorkerFound || !(amount > 0)) {
+      setTopUpError(t.invalidAmount)
+      return
+    }
+    setTopUpBusy(true)
+    setTopUpError('')
+    try {
+      const updated = await topUpWorker(topUpWorkerFound.id, amount, topUpNote.trim())
+      await setWorkerBalanceLocally(topUpWorkerFound.employee_id, updated.balance)
+      closeTopUp()
+      setDialog({
+        title: t.topUpComplete,
+        body: `${updated.name}: +${amount.toFixed(2)}. ${t.newBalance}: ${updated.balance.toFixed(2)}.`,
+      })
+    } catch (err) {
+      setTopUpError(`${t.topUpFailed}: ${err.message}`)
+    } finally {
+      setTopUpBusy(false)
+    }
+  }
+
   if (!ready) return <div className="loading">Loading…</div>
 
   return (
@@ -203,6 +268,9 @@ export default function App() {
           </button>
           <button className="pill sync-btn" onClick={() => runSync(false)} disabled={syncing}>
             {syncing ? t.syncing : `${t.sync}${pendingCount ? ` (${pendingCount})` : ''}`}
+          </button>
+          <button className="pill topup-btn" onClick={openTopUp}>
+            {t.topUp}
           </button>
           <button className="pill" onClick={() => setShowSyncPanel((v) => !v)}>
             {showSyncPanel ? '▲' : '▼'} {pendingCount} {t.pendingSales}
@@ -321,6 +389,61 @@ export default function App() {
                 {t.confirmSale}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {topUpOpen && (
+        <div className="dialog-overlay" onClick={closeTopUp}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>{t.topUpTitle}</h2>
+            {!topUpWorkerFound ? (
+              <>
+                <input
+                  autoFocus
+                  placeholder={t.employeeId}
+                  value={topUpIdInput}
+                  onChange={(e) => setTopUpIdInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && lookUpTopUpWorker()}
+                />
+                {topUpError && <div className="error">{topUpError}</div>}
+                <div className="dialog-actions">
+                  <button className="secondary" onClick={closeTopUp}>{t.cancel}</button>
+                  <button onClick={lookUpTopUpWorker} disabled={!topUpIdInput.trim()}>
+                    {t.lookUpWorker}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="checkout-total">
+                  {topUpWorkerFound.name} ({t.idLabel}: {topUpWorkerFound.employee_id})
+                </p>
+                <p>{t.currentBalance}: {topUpWorkerFound.balance.toFixed(2)}</p>
+                <input
+                  autoFocus
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t.cashReceived}
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(e.target.value)}
+                />
+                <input
+                  placeholder={t.noteOptional}
+                  value={topUpNote}
+                  onChange={(e) => setTopUpNote(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && submitTopUp()}
+                />
+                {topUpError && <div className="error">{topUpError}</div>}
+                <div className="dialog-actions">
+                  <button className="secondary" onClick={changeTopUpWorker}>{t.change}</button>
+                  <button onClick={submitTopUp} disabled={topUpBusy || !(parseFloat(topUpAmount) > 0)}>
+                    {t.topUp}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
