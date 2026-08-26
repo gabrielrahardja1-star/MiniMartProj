@@ -151,3 +151,53 @@ export async function updateProductStock(productId, newStock) {
     throw err
   }
 }
+
+export async function updateProductPrice(productId, newPrice) {
+  let token = await ensureToken()
+  const body = { price: newPrice }
+  const path = `/api/admin/products/${productId}`
+  try {
+    return await request(path, { method: 'PUT', body, token })
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return request(path, { method: 'PUT', body, token })
+    }
+    throw err
+  }
+}
+
+async function uploadImage(productId, file, token) {
+  const form = new FormData()
+  form.append('file', file)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15_000)
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/products/${productId}/image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => res.statusText)
+      throw new Error(`${res.status}: ${detail}`)
+    }
+    return res.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export async function uploadProductImage(productId, file) {
+  let token = await ensureToken()
+  try {
+    return await uploadImage(productId, file, token)
+  } catch (err) {
+    if (String(err.message).startsWith('401')) {
+      token = await login()
+      return uploadImage(productId, file, token)
+    }
+    throw err
+  }
+}

@@ -101,6 +101,10 @@ const STRINGS = {
     colUom: 'UOM',
     colPrice: 'Price',
     colStock: 'Stock',
+    colImage: 'Image',
+    noImage: 'No image',
+    imageUploadFailed: 'Failed to upload image',
+    priceUpdateFailed: 'Failed to update price',
   },
   ZH: {
     title: '收银 — 新订单',
@@ -195,6 +199,10 @@ const STRINGS = {
     colUom: '单位',
     colPrice: '价格',
     colStock: '库存',
+    colImage: '图片',
+    noImage: '无图片',
+    imageUploadFailed: '图片上传失败',
+    priceUpdateFailed: '更新价格失败',
   },
   ID: {
     title: 'Kasir — Penjualan Baru',
@@ -289,6 +297,10 @@ const STRINGS = {
     colUom: 'Satuan',
     colPrice: 'Harga',
     colStock: 'Stok',
+    colImage: 'Gambar',
+    noImage: 'Tidak ada gambar',
+    imageUploadFailed: 'Gagal mengunggah gambar',
+    priceUpdateFailed: 'Gagal memperbarui harga',
   },
 }
 

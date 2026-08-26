@@ -1,8 +1,10 @@
 import csv
 import io
+import os
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session, joinedload
 from app.db.session import get_db
 from app.models.order import Order, OrderItem
@@ -28,6 +30,9 @@ from app.core.security import hash_pin
 from app.core.deps import require_admin
 
 LOW_STOCK_THRESHOLD = 5
+PRODUCT_IMAGE_DIR = "uploads/products"
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
@@ -91,6 +96,48 @@ def admin_update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(product, field, value)
+    db.commit()
+    db.refresh(product)
+    out = ProductAdminOut.model_validate(product)
+    out.low_stock = product.stock <= LOW_STOCK_THRESHOLD
+    return out
+
+
+@router.post("/products/{product_id}/image", response_model=ProductAdminOut)
+def admin_upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Only PNG, JPEG, or WEBP images are accepted")
+
+    contents = file.file.read()
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=400, detail="Image must be under 5MB")
+    try:
+        Image.open(io.BytesIO(contents)).verify()
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="File is not a valid image")
+
+    os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
+    # clear out any previously-saved image for this product under a different extension
+    for other_ext in ALLOWED_IMAGE_EXTENSIONS - {ext}:
+        stale = os.path.join(PRODUCT_IMAGE_DIR, f"product_{product_id}{other_ext}")
+        if os.path.exists(stale):
+            os.remove(stale)
+
+    save_path = os.path.join(PRODUCT_IMAGE_DIR, f"product_{product_id}{ext}")
+    with open(save_path, "wb") as f:
+        f.write(contents)
+
+    product.image_url = f"/uploads/products/product_{product_id}{ext}"
     db.commit()
     db.refresh(product)
     out = ProductAdminOut.model_validate(product)

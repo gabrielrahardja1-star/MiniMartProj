@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react'
-import { fetchAdminProducts, createProduct, updateProductStock } from './api'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { fetchAdminProducts, createProduct, updateProductStock, updateProductPrice, uploadProductImage } from './api'
+import { resolveImageUrl } from './config'
 
 // Inventory management tab: add new products and adjust stock on hand.
 // Unlike the rest of the till, this hits the live admin API every time
@@ -161,6 +162,117 @@ function StockAdjuster({ t, product, onAdjusted }) {
   )
 }
 
+function PriceEditor({ t, product, onUpdated }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(String(product.price))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  function start() {
+    setValue(String(product.price))
+    setError('')
+    setEditing(true)
+  }
+
+  async function save() {
+    const price = parseFloat(value)
+    if (!(price > 0)) {
+      setError(t.priceRequired)
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const updated = await updateProductPrice(product.id, price)
+      onUpdated(updated)
+      setEditing(false)
+    } catch (err) {
+      setError(`${t.priceUpdateFailed}: ${err.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <span className="price-display" onClick={start} title={t.save}>
+        {product.price.toFixed(2)}
+      </span>
+    )
+  }
+
+  return (
+    <div className="price-editor">
+      <input
+        autoFocus
+        className="price-editor-input"
+        type="number"
+        min="0"
+        step="0.01"
+        value={value}
+        disabled={busy}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+      <button className="price-editor-btn" onClick={save} disabled={busy}>✓</button>
+      <button className="price-editor-btn secondary" onClick={() => setEditing(false)} disabled={busy}>✗</button>
+      {error && <div className="error">{error}</div>}
+    </div>
+  )
+}
+
+function ImageCell({ t, product, onUpdated }) {
+  const fileInputRef = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    setError('')
+    try {
+      const updated = await uploadProductImage(product.id, file)
+      onUpdated(updated)
+    } catch (err) {
+      setError(`${t.imageUploadFailed}: ${err.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const url = resolveImageUrl(product.image_url)
+
+  return (
+    <div className="image-cell">
+      {url ? (
+        <img className="product-thumb" src={url} alt={product.name} />
+      ) : (
+        <div className="product-thumb product-thumb-empty">{t.noImage}</div>
+      )}
+      <button
+        className="image-cell-btn"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={busy}
+      >
+        {t.change}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
+      {error && <div className="error">{error}</div>}
+    </div>
+  )
+}
+
 export default function Inventory({ t }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -192,7 +304,7 @@ export default function Inventory({ t }) {
     setTimeout(() => setNotice(''), 3000)
   }
 
-  function handleAdjusted(updated) {
+  function handleProductUpdated(updated) {
     setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
   }
 
@@ -216,6 +328,7 @@ export default function Inventory({ t }) {
         <table className="sync-table">
           <thead>
             <tr>
+              <th>{t.colImage}</th>
               <th>{t.colName}</th>
               <th>{t.colCategory}</th>
               <th>{t.colUom}</th>
@@ -228,6 +341,9 @@ export default function Inventory({ t }) {
             {products.map((p) => (
               <tr key={p.id}>
                 <td>
+                  <ImageCell t={t} product={p} onUpdated={handleProductUpdated} />
+                </td>
+                <td>
                   <div className="product-name">{p.name}</div>
                   {p.name_zh && <div className="product-name-secondary">{p.name_zh}</div>}
                 </td>
@@ -236,10 +352,12 @@ export default function Inventory({ t }) {
                   {p.sub_category && <div className="product-name-secondary">{p.sub_category}</div>}
                 </td>
                 <td>{p.unit}</td>
-                <td>{p.price.toFixed(2)}</td>
+                <td>
+                  <PriceEditor t={t} product={p} onUpdated={handleProductUpdated} />
+                </td>
                 <td>{p.stock}</td>
                 <td>
-                  <StockAdjuster t={t} product={p} onAdjusted={handleAdjusted} />
+                  <StockAdjuster t={t} product={p} onAdjusted={handleProductUpdated} />
                 </td>
               </tr>
             ))}
