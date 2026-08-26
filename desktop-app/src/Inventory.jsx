@@ -245,7 +245,7 @@ function ImageCell({ t, product, onUpdated }) {
     }
   }
 
-  const url = resolveImageUrl(product.image_url)
+  const url = resolveImageUrl(product.image_url, product.updated_at)
 
   return (
     <div className="image-cell">

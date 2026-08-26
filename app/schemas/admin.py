@@ -18,6 +18,7 @@ class ProductAdminOut(BaseModel):
     image_url: str | None = None
     is_active: bool
     low_stock: bool = False
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 

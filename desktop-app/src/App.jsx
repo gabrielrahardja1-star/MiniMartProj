@@ -600,7 +600,7 @@ export default function App() {
             return (
               <div className="product-card" key={p.id}>
                 {p.image_url ? (
-                  <img src={resolveImageUrl(p.image_url)} alt={primaryName} />
+                  <img src={resolveImageUrl(p.image_url, p.updated_at)} alt={primaryName} />
                 ) : (
                   <div className="product-img-placeholder" />
                 )}

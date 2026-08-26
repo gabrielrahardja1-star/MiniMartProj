@@ -8,8 +8,12 @@ export const DEVICE_PIN = import.meta.env.VITE_DEVICE_PIN || '0000'
 export const LOW_STOCK_THRESHOLD = 5
 export const SYNC_INTERVAL_MS = 60_000
 
-export function resolveImageUrl(imageUrl) {
+// updatedAt (a product's last-modified timestamp) is appended as a cache-busting
+// query param so the browser re-fetches the image whenever the photo actually
+// changes, instead of serving a stale cached copy from the same URL path.
+export function resolveImageUrl(imageUrl, updatedAt) {
   if (!imageUrl) return null
-  if (/^https?:\/\//.test(imageUrl)) return imageUrl
-  return `${API_BASE_URL}${imageUrl}`
+  const bust = updatedAt ? `?v=${encodeURIComponent(updatedAt)}` : ''
+  if (/^https?:\/\//.test(imageUrl)) return `${imageUrl}${bust}`
+  return `${API_BASE_URL}${imageUrl}${bust}`
 }

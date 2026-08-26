@@ -18,7 +18,8 @@ export async function initDb() {
       price REAL NOT NULL,
       stock INTEGER NOT NULL,
       unit TEXT,
-      image_url TEXT
+      image_url TEXT,
+      updated_at TEXT
     );
   `)
   await db.execute(`
@@ -68,6 +69,7 @@ export async function initDb() {
   await ensureColumn(db, 'sales', 'server_order_id', 'server_order_id INTEGER')
   await ensureColumn(db, 'topups', 'transaction_id', 'transaction_id INTEGER')
   await ensureColumn(db, 'topups', 'reversed', 'reversed INTEGER DEFAULT 0')
+  await ensureColumn(db, 'products', 'updated_at', 'updated_at TEXT')
   return db
 }
 
@@ -97,9 +99,9 @@ export async function replaceProducts(products) {
   await db.execute('DELETE FROM products')
   for (const p of products) {
     await db.execute(
-      `INSERT INTO products (id, name, name_zh, sku, price, stock, unit, image_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [p.id, p.name, p.name_zh ?? null, p.sku, p.price, p.stock, p.unit, p.image_url ?? null]
+      `INSERT INTO products (id, name, name_zh, sku, price, stock, unit, image_url, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [p.id, p.name, p.name_zh ?? null, p.sku, p.price, p.stock, p.unit, p.image_url ?? null, p.updated_at ?? null]
     )
   }
 }
