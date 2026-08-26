@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:8000',
+      // mirrors nginx.conf's production proxy for product photos
+      '/uploads': 'http://localhost:8000',
     },
   },
 })

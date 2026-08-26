@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { T, FONT } from '../../utils/theme'
 import Ic from '../../components/Ic'
@@ -27,10 +27,35 @@ function guessCategory(name = '') {
   return 'other'
 }
 
-export function ProductThumb({ name, size = 44, radius = 10 }) {
+export function ProductThumb({ name, imageUrl, updatedAt, size = 44, radius = 10 }) {
   const cat = guessCategory(name)
   const [bg, fg] = CAT_COLORS[cat] || CAT_COLORS.other
   const icon = CAT_ICONS[cat] || 'box'
+  if (imageUrl) {
+    // updatedAt busts the browser cache so a changed photo shows up immediately
+    // instead of the old bytes cached under the same URL.
+    const src = updatedAt ? `${imageUrl}?v=${encodeURIComponent(updatedAt)}` : imageUrl
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: radius, flexShrink: 0,
+        background: '#fff', border: `1px solid ${T.line}`, overflow: 'hidden',
+        display: 'grid', placeItems: 'center',
+      }}>
+        <img
+          src={src}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'contain', padding: size * 0.08 }}
+          onError={e => {
+            e.target.style.display = 'none'
+            const p = e.target.parentNode
+            p.style.background = bg
+            p.style.border = 'none'
+            p.innerHTML = ''
+          }}
+        />
+      </div>
+    )
+  }
   return (
     <div style={{
       width: size, height: size, borderRadius: radius,
@@ -225,6 +250,8 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
 function EditProductSheet({ product, open, onClose, onSaved }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
   useEffect(() => {
     if (product) {
       setDraft({ ...product })
@@ -232,6 +259,25 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
   }, [product, open])
 
   if (!draft) return null
+
+  async function uploadImage(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await api.post(`/admin/products/${draft.id}/image`, form)
+      setDraft(res.data)
+      onSaved()
+      toast.success('Photo updated')
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to upload photo')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function save() {
     setSaving(true)
@@ -284,8 +330,22 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: T.surface, borderRadius: 16, padding: 14, border: `1px solid ${T.line}` }}>
-            <ProductThumb name={draft.name} size={56} radius={12} />
+            <ProductThumb name={draft.name} imageUrl={draft.image_url} updatedAt={draft.updated_at} size={56} radius={12} />
             <div style={{ flex: 1, color: T.ink3, fontSize: 12 }}>Product ID #{draft.id} · SKU {draft.sku}</div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={{ display: 'none' }}
+              onChange={uploadImage}
+            />
+            <div
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              style={{
+                padding: '8px 12px', borderRadius: 10, background: T.brandSoft, color: T.brand,
+                fontSize: 12, fontWeight: 700, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.6 : 1,
+              }}
+            >{uploading ? 'Uploading…' : 'Change photo'}</div>
           </div>
 
           <Field label="Name">

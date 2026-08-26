@@ -30,10 +30,13 @@ function guessCategory(name) {
   return 'other'
 }
 
-function ProductThumb({ cat, imageUrl, size = 96 }) {
+function ProductThumb({ cat, imageUrl, updatedAt, size = 96 }) {
   const [bg, fg] = CAT_COLORS[cat] || CAT_COLORS.other
   const iconMap = { drinks: 'cup', snacks: 'snack', meals: 'meal', care: 'care', gear: 'helmet', other: 'box' }
   if (imageUrl) {
+    // updatedAt busts the browser cache so a changed photo shows up immediately
+    // instead of the old bytes cached under the same URL.
+    const src = updatedAt ? `${imageUrl}?v=${encodeURIComponent(updatedAt)}` : imageUrl
     return (
       <div style={{
         width: '100%', height: size, borderRadius: 12, overflow: 'hidden',
@@ -41,7 +44,7 @@ function ProductThumb({ cat, imageUrl, size = 96 }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <img
-          src={imageUrl}
+          src={src}
           alt=""
           style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '10px' }}
           onError={e => {
@@ -215,7 +218,7 @@ export default function Shop() {
               }}>
                 {/* Thumbnail */}
                 <div style={{ position: 'relative', padding: '12px 12px 6px' }}>
-                  <ProductThumb cat={p.cat} imageUrl={p.image_url} size={140} />
+                  <ProductThumb cat={p.cat} imageUrl={p.image_url} updatedAt={p.updated_at} size={140} />
                   {lowStock && !outOfStock && (
                     <div style={{
                       position: 'absolute', top: 18, right: 18,

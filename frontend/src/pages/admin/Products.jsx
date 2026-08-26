@@ -139,7 +139,7 @@ export default function AdminInventory() {
               opacity: inactive ? 0.7 : 1,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <ProductThumb name={p.name} size={48} radius={11} />
+                <ProductThumb name={p.name} imageUrl={p.image_url} updatedAt={p.updated_at} size={48} radius={11} />
                 <div style={{ flex: 1, minWidth: 0 }} onClick={() => openEdit(p)}>
                   <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{p.name}</div>
                   <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{p.unit} · {formatCurrency(p.price)}</div>
