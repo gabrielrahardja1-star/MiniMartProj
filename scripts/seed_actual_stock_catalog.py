@@ -19,11 +19,11 @@ from app.config import settings  # noqa: E402
 
 PRODUCTS = [
     {'id': 1, 'sheet_sku': 2, 'name': "Bear Brand Steril", 'name_zh': "熊标消毒牛奶", 'category': "Susu", 'size': "189ml", 'unit': "kaleng", 'price': 11500, 'stock': 270, 'image_url': '/uploads/products/product_1.png'},
-    {'id': 2, 'sheet_sku': 3, 'name': "Collagena", 'name_zh': "胶原蛋白灭菌奶", 'category': "Susu", 'size': "189ml", 'unit': "kaleng / 罐", 'price': 14500, 'stock': 120, 'image_url': '/uploads/products/product_2.png'},
+    {'id': 2, 'sheet_sku': 3, 'name': "Collagena", 'name_zh': "胶原蛋白灭菌奶", 'category': "Susu", 'size': "189ml", 'unit': "kaleng / 罐", 'price': 14500, 'stock': 120, 'image_url': None},
     {'id': 3, 'sheet_sku': 9, 'name': "Mizone coco boost", 'name_zh': "等渗运动饮料", 'category': "Minuman", 'size': "500ml", 'unit': "btl / 瓶", 'price': 5000, 'stock': 240, 'image_url': '/uploads/products/product_3.png'},
     {'id': 4, 'sheet_sku': 10, 'name': "Sari Kacang Hijau", 'name_zh': "绿豆饮料", 'category': "Minuman", 'size': "150ml", 'unit': "btl / 瓶", 'price': 3500, 'stock': 120, 'image_url': '/uploads/products/product_4.png'},
-    {'id': 5, 'sheet_sku': 11, 'name': "Buavita", 'name_zh': "果汁", 'category': "Minuman", 'size': "245ml", 'unit': "btl / 瓶", 'price': 6500, 'stock': 72, 'image_url': '/uploads/products/product_5.png'},
-    {'id': 6, 'sheet_sku': 12, 'name': "Tebs", 'name_zh': "碳酸饮料", 'category': "Minuman", 'size': "500ml", 'unit': "btl / 瓶", 'price': 7500, 'stock': 24, 'image_url': None},
+    {'id': 5, 'sheet_sku': 11, 'name': "Buavita", 'name_zh': "果汁", 'category': "Minuman", 'size': "245ml", 'unit': "btl / 瓶", 'price': 6500, 'stock': 72, 'image_url': None},
+    {'id': 6, 'sheet_sku': 12, 'name': "Tebs", 'name_zh': "碳酸饮料", 'category': "Minuman", 'size': "500ml", 'unit': "btl / 瓶", 'price': 7500, 'stock': 24, 'image_url': '/uploads/products/product_6.png'},
     {'id': 7, 'sheet_sku': 13, 'name': "熊猫牌仙草饮料", 'name_zh': None, 'category': "Minuman", 'size': "310ml", 'unit': "kaleng / 罐", 'price': 6000, 'stock': 168, 'image_url': '/uploads/products/product_7.png'},
     {'id': 8, 'sheet_sku': 14, 'name': "Cap Badak", 'name_zh': "清凉饮料", 'category': "Minuman", 'size': "500ml", 'unit': "btl / 瓶", 'price': 9000, 'stock': 120, 'image_url': '/uploads/products/product_8.png'},
     {'id': 9, 'sheet_sku': 15, 'name': "You C 1000", 'name_zh': "优C1000 维生素饮品", 'category': "Minuman", 'size': "140ml", 'unit': "btl", 'price': 7000, 'stock': 270, 'image_url': '/uploads/products/product_9.png'},
@@ -47,7 +47,7 @@ PRODUCTS = [
     {'id': 27, 'sheet_sku': 46, 'name': "Good Time", 'name_zh': "曲奇饼干", 'category': "Snack & Biskuit", 'size': "72gr", 'unit': "pcs / 件", 'price': 9000, 'stock': 137, 'image_url': '/uploads/products/product_27.png'},
     {'id': 28, 'sheet_sku': 47, 'name': "Nabati", 'name_zh': "威化饼干", 'category': "Snack & Biskuit", 'size': "75gr", 'unit': "pcs / 件", 'price': 5500, 'stock': 37, 'image_url': '/uploads/products/product_28.png'},
     {'id': 29, 'sheet_sku': 48, 'name': "Tango Waffer Coklat Tango", 'name_zh': "巧克力威化饼干", 'category': "Snack & Biskuit", 'size': "100gr", 'unit': "pcs", 'price': 3000, 'stock': 48, 'image_url': None},
-    {'id': 30, 'sheet_sku': 50, 'name': "Kopiko", 'name_zh': "咖啡糖", 'category': "Permen", 'size': "165g", 'unit': "pcs / 件", 'price': 10500, 'stock': 29, 'image_url': '/uploads/products/product_30.png'},
+    {'id': 30, 'sheet_sku': 50, 'name': "Kopiko", 'name_zh': "咖啡糖", 'category': "Permen", 'size': "165g", 'unit': "pcs / 件", 'price': 10500, 'stock': 29, 'image_url': None},
     {'id': 31, 'sheet_sku': 54, 'name': "海飞丝洗发水", 'name_zh': None, 'category': "Perawatan Rambut", 'size': "160ml/145", 'unit': "btl / 瓶", 'price': 25500, 'stock': 90, 'image_url': '/uploads/products/product_31.png'},
     {'id': 32, 'sheet_sku': 55, 'name': "Pepsodent", 'name_zh': "牙膏", 'category': "Perawatan Mulut", 'size': "120gr", 'unit': "pcs / 件", 'price': 10000, 'stock': 69, 'image_url': '/uploads/products/product_32.png'},
     {'id': 33, 'sheet_sku': 56, 'name': "Pepsodent", 'name_zh': "牙刷（1支）", 'category': "Perawatan Mulut", 'size': "1pcs", 'unit': "pcs / 件", 'price': 3500, 'stock': 72, 'image_url': '/uploads/products/product_33.png'},
