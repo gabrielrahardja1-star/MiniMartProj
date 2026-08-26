@@ -8,10 +8,16 @@ migration 009 (adds products.source_no/flagged/flag_reason + catalog_issues):
 
     docker compose exec backend python scripts/seed_mmi_catalog.py
 """
+import os
+import sys
 import sqlite3
-from app.config import settings
 
-SEED_PATH = "mmi_minimart_seed.sql"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO_ROOT)
+
+from app.config import settings  # noqa: E402
+
+SEED_PATH = os.path.join(REPO_ROOT, "mmi_minimart_seed.sql")
 
 
 def main():
