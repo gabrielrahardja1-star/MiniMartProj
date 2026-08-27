@@ -527,6 +527,7 @@ function AdminTabBar({ active, pendingCount }) {
   const tabs = [
     { id: 'dashboard', path: '/admin/dashboard', icon: 'home',    label: 'Dashboard' },
     { id: 'orders',    path: '/admin/orders',    icon: 'orders',  label: 'Orders', badge: pendingCount },
+    { id: 'cashier',   path: '/admin/cashier',   icon: 'cart',    label: 'Cashier' },
     { id: 'inventory', path: '/admin/inventory', icon: 'box',     label: 'Inventory' },
     { id: 'profile',   path: '/admin/profile',   icon: 'profile', label: 'Me' },
   ]
