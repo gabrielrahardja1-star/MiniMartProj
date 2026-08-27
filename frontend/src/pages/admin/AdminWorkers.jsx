@@ -312,6 +312,7 @@ export default function AdminWorkers() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editWorker, setEditWorker] = useState(null)
   const [topUpWorker, setTopUpWorker] = useState(null)
+  const [q, setQ] = useState('')
 
   async function load() {
     setLoading(true)
@@ -344,7 +345,14 @@ export default function AdminWorkers() {
     setSheetOpen(true)
   }
 
-  const workerList = workers.filter(w => w.role === 'worker')
+  const allWorkers = workers.filter(w => w.role === 'worker')
+  const workerList = q
+    ? allWorkers.filter(w =>
+        w.name.toLowerCase().includes(q.toLowerCase()) ||
+        w.employee_id.toLowerCase().includes(q.toLowerCase()) ||
+        w.hr_employee_id?.toLowerCase().includes(q.toLowerCase())
+      )
+    : allWorkers
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
@@ -355,7 +363,7 @@ export default function AdminWorkers() {
             <div onClick={() => navigate('/admin/profile')} style={{ cursor: 'pointer', display: 'flex' }}>
               <Ic name="back" size={20} color={T.ink3} />
             </div>
-            <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{workerList.length} workers</div>
+            <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{allWorkers.length} workers</div>
           </div>
           <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Workers</div>
         </div>
@@ -370,6 +378,30 @@ export default function AdminWorkers() {
         </div>
       </div>
 
+      {/* Search */}
+      <div style={{ padding: '0 20px 12px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16,
+        }}>
+          <Ic name="search" size={18} color={T.ink3} />
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search by name or employee ID"
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              fontSize: 15, color: T.ink, fontFamily: FONT,
+            }}
+          />
+          {q && (
+            <div onClick={() => setQ('')} style={{ display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+              <Ic name="close" size={16} color={T.ink3} />
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Worker list */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
@@ -378,7 +410,7 @@ export default function AdminWorkers() {
           <div style={{
             background: T.surface, borderRadius: 18, padding: 30,
             border: `1px dashed ${T.line}`, textAlign: 'center', color: T.ink3, fontSize: 14,
-          }}>No workers yet. Tap Add to create the first one.</div>
+          }}>{q ? 'No matching workers.' : 'No workers yet. Tap Add to create the first one.'}</div>
         ) : workerList.map(w => {
           const initials = w.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
           return (
