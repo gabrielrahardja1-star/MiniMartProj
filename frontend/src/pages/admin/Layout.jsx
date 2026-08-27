@@ -421,6 +421,133 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
   )
 }
 
+// ── AddProductSheet ───────────────────────────────────────────────────────────
+const emptyDraft = { name: '', name_zh: '', sku: '', unit: '', price: '', category: '', sub_category: '' }
+
+function AddProductSheet({ open, onClose, onCreated }) {
+  const [draft, setDraft] = useState(emptyDraft)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) setDraft(emptyDraft)
+  }, [open])
+
+  async function save() {
+    const name = draft.name.trim()
+    const price = parseFloat(draft.price)
+    if (!name) {
+      toast.error('Enter an item name.')
+      return
+    }
+    if (!(price > 0)) {
+      toast.error('Enter a selling price greater than 0.')
+      return
+    }
+    setSaving(true)
+    try {
+      await api.post('/admin/products/', {
+        name,
+        name_zh: draft.name_zh.trim() || null,
+        sku: draft.sku.trim() || null,
+        price,
+        stock: 0,
+        unit: draft.unit.trim() || 'unit',
+        category: draft.category.trim() || null,
+        sub_category: draft.sub_category.trim() || null,
+      })
+      toast.success('Product added')
+      onCreated()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to add product')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(12,35,64,0.45)',
+        opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none',
+        transition: 'opacity 220ms ease', zIndex: 50,
+      }} />
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0,
+        background: T.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        transform: open ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)',
+        zIndex: 60, maxHeight: '92%', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 -10px 40px rgba(12,35,64,0.18)', fontFamily: FONT,
+      }}>
+        <div style={{ display: 'grid', placeItems: 'center', padding: '10px 0 4px' }}>
+          <div style={{ width: 40, height: 4, borderRadius: 3, background: T.line }} />
+        </div>
+
+        <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Add item</div>
+          <div onClick={onClose} style={{
+            width: 36, height: 36, borderRadius: 12, background: T.surface,
+            border: `1px solid ${T.line}`, display: 'grid', placeItems: 'center', cursor: 'pointer',
+          }}>
+            <Ic name="close" size={18} color={T.ink2} />
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Field label="Name">
+            <input autoFocus value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} style={inputSt} placeholder="Item name" />
+          </Field>
+          <Field label="Chinese name (optional)">
+            <input value={draft.name_zh} onChange={e => setDraft({ ...draft, name_zh: e.target.value })} style={inputSt} placeholder="中文名称" />
+          </Field>
+          <Field label="SKU (optional — auto-generated if left blank)">
+            <input value={draft.sku} onChange={e => setDraft({ ...draft, sku: e.target.value })} style={inputSt} placeholder="MM-001" />
+          </Field>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Unit">
+              <input value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })} style={inputSt} placeholder="pcs" />
+            </Field>
+            <Field label="Price (IDR)">
+              <input type="number" step="0.10" value={draft.price}
+                onChange={e => setDraft({ ...draft, price: e.target.value })}
+                style={inputSt} placeholder="0" />
+            </Field>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Category">
+              <input value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })} style={inputSt} />
+            </Field>
+            <Field label="Sub category">
+              <input value={draft.sub_category} onChange={e => setDraft({ ...draft, sub_category: e.target.value })} style={inputSt} />
+            </Field>
+          </div>
+          <div style={{ color: T.ink3, fontSize: 12 }}>
+            Stock starts at 0 — set it and add a photo from the item's Edit sheet after creating it.
+          </div>
+        </div>
+
+        <div style={{
+          background: T.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          padding: '16px 20px 34px', boxShadow: '0 -4px 20px rgba(12,35,64,0.05)',
+          display: 'flex', gap: 10,
+        }}>
+          <div onClick={onClose} style={{
+            flex: 1, padding: 16, borderRadius: 16,
+            background: T.surfaceAlt, color: T.ink2,
+            fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
+          }}>Cancel</div>
+          <div onClick={save} style={{
+            flex: 2, padding: 16, borderRadius: 16,
+            background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
+            fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
+          }}>{saving ? 'Adding…' : 'Add item'}</div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── InvoiceSheet ──────────────────────────────────────────────────────────────
 function InvoiceSheet({ invoice, open, onClose, onResolved }) {
   const [busy, setBusy] = useState(false)
@@ -575,6 +702,7 @@ export default function AdminLayout() {
   const [pendingCount, setPendingCount] = useState(0)
   const [fulfillOrder, setFulfillOrder] = useState(null)
   const [editProduct, setEditProduct] = useState(null)
+  const [addProductOpen, setAddProductOpen] = useState(false)
   const [reviewInvoice, setReviewInvoice] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -614,7 +742,7 @@ export default function AdminLayout() {
       background: T.bg, fontFamily: FONT, overflow: 'hidden',
     }}>
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 82 }}>
-        <Outlet context={{ openFulfill: setFulfillOrder, openEdit: setEditProduct, openInvoice: setReviewInvoice, refreshKey, refresh }} />
+        <Outlet context={{ openFulfill: setFulfillOrder, openEdit: setEditProduct, openAddProduct: () => setAddProductOpen(true), openInvoice: setReviewInvoice, refreshKey, refresh }} />
       </div>
 
       <AdminTabBar active={activeTab} pendingCount={pendingCount} />
@@ -630,6 +758,11 @@ export default function AdminLayout() {
         open={!!editProduct}
         onClose={() => setEditProduct(null)}
         onSaved={refresh}
+      />
+      <AddProductSheet
+        open={addProductOpen}
+        onClose={() => setAddProductOpen(false)}
+        onCreated={refresh}
       />
       <InvoiceSheet
         invoice={reviewInvoice}

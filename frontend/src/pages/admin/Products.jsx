@@ -8,7 +8,7 @@ import api from '../../api'
 import toast from 'react-hot-toast'
 
 export default function AdminInventory() {
-  const { openEdit, refreshKey } = useOutletContext()
+  const { openEdit, openAddProduct, refreshKey } = useOutletContext()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
@@ -56,9 +56,18 @@ export default function AdminInventory() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
       {/* Header */}
-      <div style={{ padding: '8px 20px 14px' }}>
-        <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{products.length} products</div>
-        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>Inventory</div>
+      <div style={{ padding: '8px 20px 14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{products.length} products</div>
+          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>Inventory</div>
+        </div>
+        <div onClick={openAddProduct} style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '10px 14px', borderRadius: 12, background: T.brand, color: '#fff',
+          fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+        }}>
+          <Ic name="plus" size={15} color="#fff" /> Add item
+        </div>
       </div>
 
       {/* Search */}
