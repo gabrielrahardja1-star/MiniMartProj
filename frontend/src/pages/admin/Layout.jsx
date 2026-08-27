@@ -426,11 +426,26 @@ const emptyDraft = { name: '', name_zh: '', sku: '', unit: '', price: '', catego
 
 function AddProductSheet({ open, onClose, onCreated }) {
   const [draft, setDraft] = useState(emptyDraft)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
-    if (open) setDraft(emptyDraft)
+    if (open) {
+      setDraft(emptyDraft)
+      setPhotoFile(null)
+      setPhotoPreview(null)
+    }
   }, [open])
+
+  function pickPhoto(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
   async function save() {
     const name = draft.name.trim()
@@ -445,7 +460,7 @@ function AddProductSheet({ open, onClose, onCreated }) {
     }
     setSaving(true)
     try {
-      await api.post('/admin/products/', {
+      const res = await api.post('/admin/products/', {
         name,
         name_zh: draft.name_zh.trim() || null,
         sku: draft.sku.trim() || null,
@@ -455,6 +470,18 @@ function AddProductSheet({ open, onClose, onCreated }) {
         category: draft.category.trim() || null,
         sub_category: draft.sub_category.trim() || null,
       })
+      if (photoFile) {
+        const form = new FormData()
+        form.append('file', photoFile)
+        try {
+          await api.post(`/admin/products/${res.data.id}/image`, form)
+        } catch (err) {
+          toast.error(err.response?.data?.detail || 'Product added, but the photo failed to upload')
+          onCreated()
+          onClose()
+          return
+        }
+      }
       toast.success('Product added')
       onCreated()
       onClose()
@@ -495,6 +522,36 @@ function AddProductSheet({ open, onClose, onCreated }) {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: T.surface, borderRadius: 16, padding: 14, border: `1px solid ${T.line}` }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 12, flexShrink: 0,
+              background: photoPreview ? '#fff' : T.surfaceAlt,
+              border: `1px solid ${T.line}`, overflow: 'hidden',
+              display: 'grid', placeItems: 'center',
+            }}>
+              {photoPreview ? (
+                <img src={photoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
+              ) : (
+                <Ic name="box" size={22} color={T.ink3} />
+              )}
+            </div>
+            <div style={{ flex: 1, color: T.ink3, fontSize: 12 }}>{photoFile ? photoFile.name : 'No photo selected'}</div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={{ display: 'none' }}
+              onChange={pickPhoto}
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                padding: '8px 12px', borderRadius: 10, background: T.brandSoft, color: T.brand,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}
+            >{photoPreview ? 'Change' : 'Choose photo'}</div>
+          </div>
+
           <Field label="Name">
             <input autoFocus value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} style={inputSt} placeholder="Item name" />
           </Field>
@@ -523,7 +580,7 @@ function AddProductSheet({ open, onClose, onCreated }) {
             </Field>
           </div>
           <div style={{ color: T.ink3, fontSize: 12 }}>
-            Stock starts at 0 — set it and add a photo from the item's Edit sheet after creating it.
+            Stock starts at 0 — set it from the item's Edit sheet after creating it.
           </div>
         </div>
 
