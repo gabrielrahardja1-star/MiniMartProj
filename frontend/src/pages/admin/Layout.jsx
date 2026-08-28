@@ -101,6 +101,26 @@ const inputSt = {
   fontSize: 15, color: T.ink, fontFamily: FONT, outline: 'none',
 }
 
+// ── Category dropdown (fixed list from GET /products/categories) ──────────────
+export function CategorySelect({ value, onChange, categories = [] }) {
+  const known = categories.some(c => c.key === value)
+  return (
+    <select
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      style={{ ...inputSt, appearance: 'none', cursor: 'pointer' }}
+    >
+      <option value="">— No category —</option>
+      {!known && value && <option value={value}>{value} (current)</option>}
+      {categories.map(c => (
+        <option key={c.key} value={c.key}>
+          {c.name_id}{c.name_zh ? ` · ${c.name_zh}` : ''}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 // ── FulfillSheet ─────────────────────────────────────────────────────────────
 function FulfillSheet({ order, open, onClose, onAdvance }) {
   const [checked, setChecked] = useState({})
@@ -247,7 +267,7 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
 }
 
 // ── EditProductSheet ─────────────────────────────────────────────────────────
-function EditProductSheet({ product, open, onClose, onSaved }) {
+function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -284,9 +304,12 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
     try {
       await api.put(`/admin/products/${draft.id}`, {
         name: draft.name,
+        name_zh: (draft.name_zh || '').trim(),
         unit: draft.unit,
         price: draft.price,
         stock: draft.stock,
+        category: draft.category || '',
+        sub_category: (draft.sub_category || '').trim(),
         is_active: draft.is_active,
       })
       toast.success('Product updated')
@@ -351,6 +374,10 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
           <Field label="Name">
             <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} style={inputSt} />
           </Field>
+          <Field label="Chinese name">
+            <input value={draft.name_zh || ''} onChange={e => setDraft({ ...draft, name_zh: e.target.value })}
+              style={inputSt} placeholder="中文名称" />
+          </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field label="Unit">
@@ -359,6 +386,17 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
             <Field label="Price (IDR)">
               <input type="number" step="0.10" value={draft.price}
                 onChange={e => setDraft({ ...draft, price: parseFloat(e.target.value) || 0 })}
+                style={inputSt} />
+            </Field>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Category">
+              <CategorySelect value={draft.category} categories={categories}
+                onChange={v => setDraft({ ...draft, category: v })} />
+            </Field>
+            <Field label="Sub category">
+              <input value={draft.sub_category || ''} onChange={e => setDraft({ ...draft, sub_category: e.target.value })}
                 style={inputSt} />
             </Field>
           </div>
@@ -424,7 +462,7 @@ function EditProductSheet({ product, open, onClose, onSaved }) {
 // ── AddProductSheet ───────────────────────────────────────────────────────────
 const emptyDraft = { name: '', name_zh: '', sku: '', unit: '', price: '', category: '', sub_category: '' }
 
-function AddProductSheet({ open, onClose, onCreated }) {
+function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
   const [draft, setDraft] = useState(emptyDraft)
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -573,7 +611,8 @@ function AddProductSheet({ open, onClose, onCreated }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field label="Category">
-              <input value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })} style={inputSt} />
+              <CategorySelect value={draft.category} categories={categories}
+                onChange={v => setDraft({ ...draft, category: v })} />
             </Field>
             <Field label="Sub category">
               <input value={draft.sub_category} onChange={e => setDraft({ ...draft, sub_category: e.target.value })} style={inputSt} />
@@ -762,9 +801,14 @@ export default function AdminLayout() {
   const [addProductOpen, setAddProductOpen] = useState(false)
   const [reviewInvoice, setReviewInvoice] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [categories, setCategories] = useState([])
 
   const activeTab = location.pathname.split('/')[2] || 'dashboard'
   const refresh = useCallback(() => setRefreshKey(k => k + 1), [])
+
+  useEffect(() => {
+    api.get('/products/categories').then(r => setCategories(r.data)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     async function loadCount() {
@@ -799,7 +843,7 @@ export default function AdminLayout() {
       background: T.bg, fontFamily: FONT, overflow: 'hidden',
     }}>
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 82 }}>
-        <Outlet context={{ openFulfill: setFulfillOrder, openEdit: setEditProduct, openAddProduct: () => setAddProductOpen(true), openInvoice: setReviewInvoice, refreshKey, refresh }} />
+        <Outlet context={{ openFulfill: setFulfillOrder, openEdit: setEditProduct, openAddProduct: () => setAddProductOpen(true), openInvoice: setReviewInvoice, refreshKey, refresh, categories }} />
       </div>
 
       <AdminTabBar active={activeTab} pendingCount={pendingCount} />
@@ -815,11 +859,13 @@ export default function AdminLayout() {
         open={!!editProduct}
         onClose={() => setEditProduct(null)}
         onSaved={refresh}
+        categories={categories}
       />
       <AddProductSheet
         open={addProductOpen}
         onClose={() => setAddProductOpen(false)}
         onCreated={refresh}
+        categories={categories}
       />
       <InvoiceSheet
         invoice={reviewInvoice}

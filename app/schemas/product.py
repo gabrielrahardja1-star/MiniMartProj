@@ -12,6 +12,7 @@ class ProductOut(BaseModel):
     stock: int
     unit: str
     category: Optional[str] = None
+    category_zh: Optional[str] = None
     sub_category: Optional[str] = None
     brand: Optional[str] = None
     size: Optional[str] = None

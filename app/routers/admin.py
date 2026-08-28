@@ -28,6 +28,7 @@ from app.schemas.admin import (
 from app.schemas.wallet import WalletTopUpRequest, WalletAdjustRequest, WalletTransactionOut
 from app.core.security import hash_pin
 from app.core.deps import require_admin
+from app.core.product_categories import category_zh_for
 from app.services.storage import save_product_image, ALLOWED_IMAGE_EXTENSIONS
 
 LOW_STOCK_THRESHOLD = 5
@@ -74,6 +75,7 @@ def admin_create_product(
     sku = data.pop("sku") or _generate_sku(db)
     if db.query(Product).filter(Product.sku == sku).first():
         raise HTTPException(status_code=409, detail=f"SKU '{sku}' already exists")
+    data["category_zh"] = category_zh_for(data.get("category"))
     product = Product(sku=sku, **data)
     db.add(product)
     db.commit()
@@ -93,8 +95,12 @@ def admin_update_product(
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    for field, value in body.model_dump(exclude_none=True).items():
+    fields = body.model_dump(exclude_unset=True)
+    for field, value in fields.items():
         setattr(product, field, value)
+    # keep the Chinese category label in sync with the category
+    if "category" in fields:
+        product.category_zh = category_zh_for(product.category)
     db.commit()
     db.refresh(product)
     out = ProductAdminOut.model_validate(product)

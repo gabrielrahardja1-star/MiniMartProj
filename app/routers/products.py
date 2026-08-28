@@ -5,8 +5,16 @@ from app.models.product import Product
 from app.models.worker import Worker
 from app.schemas.product import ProductOut
 from app.core.deps import get_current_worker
+from app.core.product_categories import PRODUCT_CATEGORIES
 
 router = APIRouter(prefix="/api/products", tags=["products"])
+
+
+@router.get("/categories")
+def list_categories(_worker: Worker = Depends(get_current_worker)):
+    """The fixed set of product categories, with Indonesian + Chinese labels.
+    Source of truth is app/core/product_categories.py."""
+    return PRODUCT_CATEGORIES
 
 
 @router.get("/", response_model=list[ProductOut])

@@ -1,6 +1,13 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from app.schemas.wallet import WalletTransactionOut
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
 
 
 class ProductAdminOut(BaseModel):
@@ -12,6 +19,7 @@ class ProductAdminOut(BaseModel):
     stock: int
     unit: str
     category: str | None = None
+    category_zh: str | None = None
     sub_category: str | None = None
     brand: str | None = None
     size: str | None = None
@@ -33,6 +41,8 @@ class ProductCreateRequest(BaseModel):
     category: str | None = None
     sub_category: str | None = None
 
+    _clean = field_validator("name_zh", "category", "sub_category")(_blank_to_none)
+
 
 class ProductUpdateRequest(BaseModel):
     name: str | None = None
@@ -43,6 +53,8 @@ class ProductUpdateRequest(BaseModel):
     category: str | None = None
     sub_category: str | None = None
     is_active: bool | None = None
+
+    _clean = field_validator("name_zh", "category", "sub_category")(_blank_to_none)
 
 
 class OrderItemAdminOut(BaseModel):

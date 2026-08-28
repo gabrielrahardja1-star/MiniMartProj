@@ -8,11 +8,12 @@ import api from '../../api'
 import toast from 'react-hot-toast'
 
 export default function AdminInventory() {
-  const { openEdit, openAddProduct, refreshKey } = useOutletContext()
+  const { openEdit, openAddProduct, refreshKey, categories = [] } = useOutletContext()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
+  const [catFilter, setCatFilter] = useState('all')
 
   useEffect(() => {
     async function load() {
@@ -40,11 +41,36 @@ export default function AdminInventory() {
   const outCount      = products.filter(p => p.is_active && p.stock === 0).length
   const inactiveCount = products.filter(p => !p.is_active).length
 
+  // category chips: every category present in the catalog, + "Uncategorized" if any
+  const zhFor = c => categories.find(x => x.key === c)?.name_zh
+  const catCounts = products.reduce((m, p) => {
+    const k = p.category || '__none__'
+    m.set(k, (m.get(k) || 0) + 1)
+    return m
+  }, new Map())
+  const catChips = [...catCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, count]) => ({
+      id: k,
+      count,
+      label: k === '__none__' ? 'Uncategorized' : (zhFor(k) ? `${k} · ${zhFor(k)}` : k),
+    }))
+
   let list = products
   if (filter === 'low')      list = products.filter(p => p.is_active && p.stock > 0 && p.stock <= 5)
   if (filter === 'out')      list = products.filter(p => p.is_active && p.stock === 0)
   if (filter === 'inactive') list = products.filter(p => !p.is_active)
-  if (q) list = list.filter(p => p.name.toLowerCase().includes(q.toLowerCase()))
+  if (catFilter !== 'all') {
+    list = list.filter(p => (p.category || '__none__') === catFilter)
+  }
+  if (q) {
+    const needle = q.toLowerCase()
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(needle) ||
+      p.name_zh?.includes(q) ||
+      p.category?.toLowerCase().includes(needle)
+    )
+  }
 
   const chips = [
     { id: 'all',      label: 'All',          count: products.length },
@@ -122,6 +148,34 @@ export default function AdminInventory() {
         </div>
       </div>
 
+      {/* Category chips */}
+      {catChips.length > 1 && (
+        <div style={{ padding: '0 0 14px' }}>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
+            {[{ id: 'all', label: 'All categories', count: products.length }, ...catChips].map(c => {
+              const active = catFilter === c.id
+              return (
+                <div key={c.id} onClick={() => setCatFilter(c.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '9px 14px', borderRadius: 999,
+                  background: active ? T.brand : T.surface,
+                  border: `1px solid ${active ? T.brand : T.line}`,
+                  color: active ? '#fff' : T.ink2,
+                  fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, cursor: 'pointer',
+                }}>
+                  {c.label}
+                  <span style={{
+                    background: active ? 'rgba(255,255,255,0.2)' : T.surfaceAlt,
+                    color: active ? '#fff' : T.ink2,
+                    fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999, minWidth: 18, textAlign: 'center',
+                  }}>{c.count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Product list */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
@@ -150,8 +204,12 @@ export default function AdminInventory() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <ProductThumb name={p.name} imageUrl={p.image_url} updatedAt={p.updated_at} size={48} radius={11} />
                 <div style={{ flex: 1, minWidth: 0 }} onClick={() => openEdit(p)}>
-                  <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{p.name}</div>
-                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>{p.unit} · {formatCurrency(p.price)}</div>
+                  <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>
+                    {p.name}{p.name_zh ? <span style={{ color: T.ink3, fontWeight: 500 }}> · {p.name_zh}</span> : null}
+                  </div>
+                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
+                    {p.unit} · {formatCurrency(p.price)}{p.category ? ` · ${p.category}` : ''}
+                  </div>
                 </div>
                 <div style={{
                   minWidth: 48, padding: '6px 10px', borderRadius: 10,
