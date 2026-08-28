@@ -12,6 +12,9 @@ services:
     volumes:
       # Persist the SQLite database file across container restarts
       - db_data:/app/data
+      # Safety net if R2 is ever unconfigured — product photo uploads fall
+      # back to local disk, which otherwise wouldn't survive a redeploy
+      - uploads_data:/app/uploads
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -28,3 +31,4 @@ services:
 
 volumes:
   db_data:
+  uploads_data:

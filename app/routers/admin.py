@@ -28,10 +28,9 @@ from app.schemas.admin import (
 from app.schemas.wallet import WalletTopUpRequest, WalletAdjustRequest, WalletTransactionOut
 from app.core.security import hash_pin
 from app.core.deps import require_admin
+from app.services.storage import save_product_image, ALLOWED_IMAGE_EXTENSIONS
 
 LOW_STOCK_THRESHOLD = 5
-PRODUCT_IMAGE_DIR = "uploads/products"
-ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -126,18 +125,7 @@ def admin_upload_product_image(
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="File is not a valid image")
 
-    os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
-    # clear out any previously-saved image for this product under a different extension
-    for other_ext in ALLOWED_IMAGE_EXTENSIONS - {ext}:
-        stale = os.path.join(PRODUCT_IMAGE_DIR, f"product_{product_id}{other_ext}")
-        if os.path.exists(stale):
-            os.remove(stale)
-
-    save_path = os.path.join(PRODUCT_IMAGE_DIR, f"product_{product_id}{ext}")
-    with open(save_path, "wb") as f:
-        f.write(contents)
-
-    product.image_url = f"/uploads/products/product_{product_id}{ext}"
+    product.image_url = save_product_image(product_id, ext, contents)
     db.commit()
     db.refresh(product)
     out = ProductAdminOut.model_validate(product)
