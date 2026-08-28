@@ -16,6 +16,7 @@ class Product(Base):
     stock: Mapped[int] = mapped_column(Integer, default=0)
     unit: Mapped[str] = mapped_column(String(50), default="unit")
     category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    category_zh: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     sub_category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     brand: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     size: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
