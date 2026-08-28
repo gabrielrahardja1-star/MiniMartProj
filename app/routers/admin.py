@@ -25,7 +25,7 @@ from app.schemas.admin import (
     WalletTopUpResult,
     WalletReversalResult,
 )
-from app.schemas.wallet import WalletTopUpRequest, WalletTransactionOut
+from app.schemas.wallet import WalletTopUpRequest, WalletAdjustRequest, WalletTransactionOut
 from app.core.security import hash_pin
 from app.core.deps import require_admin
 
@@ -439,6 +439,48 @@ def admin_top_up_worker(
         worker_id=worker.id,
         type="topup",
         amount=amount,
+        balance_after=worker.balance,
+        performed_by_worker_id=admin.id,
+        note=body.note,
+    )
+    db.add(tx)
+    db.commit()
+    db.refresh(worker)
+    db.refresh(tx)
+    return WalletTopUpResult(worker=worker, transaction=tx)
+
+
+@router.post("/workers/{worker_id}/adjust-balance", response_model=WalletTopUpResult)
+def admin_adjust_worker_balance(
+    worker_id: int,
+    body: WalletAdjustRequest,
+    db: Session = Depends(get_db),
+    admin: Worker = Depends(require_admin),
+):
+    """Directly corrects a worker's balance to a specific value (e.g. fixing
+    a data-entry mistake), rather than adding a top-up. Still logged as a
+    wallet_transaction — type adjustment_credit/adjustment_debit, amount
+    stored as the positive size of the change — so the ledger always
+    reconciles with the balance."""
+    worker = (
+        db.query(Worker)
+        .filter(Worker.id == worker_id)
+        .with_for_update()
+        .first()
+    )
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    new_balance = round(float(body.new_balance), 2)
+    delta = round(new_balance - float(worker.balance), 2)
+    if delta == 0:
+        raise HTTPException(status_code=400, detail="New balance matches the current balance")
+
+    worker.balance = new_balance
+    tx = WalletTransaction(
+        worker_id=worker.id,
+        type="adjustment_credit" if delta > 0 else "adjustment_debit",
+        amount=abs(delta),
         balance_after=worker.balance,
         performed_by_worker_id=admin.id,
         note=body.note,

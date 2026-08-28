@@ -188,30 +188,42 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
   )
 }
 
-// ── Wallet top-up sheet ──────────────────────────────────────────────────────
+// ── Wallet top-up / balance-edit sheet ────────────────────────────────────────
 function TopUpSheet({ worker, open, onClose, onSaved }) {
+  const [mode, setMode] = useState('topup') // 'topup' | 'set'
   const [amount, setAmount] = useState('')
+  const [newBalance, setNewBalance] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
+      setMode('topup')
       setAmount('')
+      setNewBalance(worker ? String(worker.balance) : '')
       setNote('')
     }
   }, [open, worker?.id])
 
   async function save() {
-    const parsed = Number(amount)
-    if (!parsed || parsed <= 0) return toast.error('Enter a top-up amount')
     setSaving(true)
     try {
-      await api.post(`/admin/workers/${worker.id}/topup`, { amount: parsed, note })
-      toast.success('Balance topped up')
+      if (mode === 'topup') {
+        const parsed = Number(amount)
+        if (!parsed || parsed <= 0) { toast.error('Enter a top-up amount'); setSaving(false); return }
+        await api.post(`/admin/workers/${worker.id}/topup`, { amount: parsed, note })
+        toast.success('Balance topped up')
+      } else {
+        const parsed = Number(newBalance)
+        if (newBalance === '' || parsed < 0) { toast.error('Enter a valid balance'); setSaving(false); return }
+        if (parsed === worker.balance) { toast.error('That’s already the current balance'); setSaving(false); return }
+        await api.post(`/admin/workers/${worker.id}/adjust-balance`, { new_balance: parsed, note })
+        toast.success('Balance updated')
+      }
       onSaved()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Top-up failed')
+      toast.error(err.response?.data?.detail || 'Failed to save')
     } finally {
       setSaving(false)
     }
@@ -238,7 +250,7 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
 
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Top up wallet</div>
+            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Wallet</div>
             <div style={{ color: T.ink3, fontSize: 13, marginTop: 2 }}>{worker?.name}</div>
           </div>
           <div onClick={onClose} style={{
@@ -260,23 +272,49 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
             <div style={{ color: T.ink, fontSize: 18, fontWeight: 700 }}>{formatCurrency(worker?.balance || 0)}</div>
           </div>
 
-          <Field label="Cash received">
-            <input
-              type="number"
-              min="0"
-              inputMode="decimal"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              placeholder="e.g. 50000"
-              style={inputSt}
-            />
-          </Field>
+          <div style={{ display: 'flex', background: T.surfaceAlt, borderRadius: 12, padding: 3, gap: 3 }}>
+            {[{ id: 'topup', label: 'Top up' }, { id: 'set', label: 'Edit balance' }].map(m => (
+              <div key={m.id} onClick={() => setMode(m.id)} style={{
+                flex: 1, padding: '9px 0', borderRadius: 9, textAlign: 'center', cursor: 'pointer',
+                background: mode === m.id ? T.surface : 'transparent',
+                color: mode === m.id ? T.ink : T.ink3,
+                fontSize: 13, fontWeight: 700,
+                boxShadow: mode === m.id ? '0 1px 3px rgba(12,35,64,0.1)' : 'none',
+              }}>{m.label}</div>
+            ))}
+          </div>
+
+          {mode === 'topup' ? (
+            <Field label="Cash received">
+              <input
+                type="number"
+                min="0"
+                inputMode="decimal"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                placeholder="e.g. 50000"
+                style={inputSt}
+              />
+            </Field>
+          ) : (
+            <Field label="New balance">
+              <input
+                type="number"
+                min="0"
+                inputMode="decimal"
+                value={newBalance}
+                onChange={e => setNewBalance(e.target.value)}
+                placeholder="e.g. 50000"
+                style={inputSt}
+              />
+            </Field>
+          )}
 
           <Field label="Note">
             <input
               value={note}
               onChange={e => setNote(e.target.value)}
-              placeholder="Optional"
+              placeholder={mode === 'topup' ? 'Optional' : 'e.g. Correcting a data-entry error'}
               maxLength={255}
               style={inputSt}
             />
@@ -297,7 +335,7 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
             flex: 2, padding: 16, borderRadius: 16,
             background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
-          }}>{saving ? 'Saving…' : 'Add balance'}</div>
+          }}>{saving ? 'Saving…' : mode === 'topup' ? 'Add balance' : 'Save balance'}</div>
         </div>
       </div>
     </>

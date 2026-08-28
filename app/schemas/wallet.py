@@ -15,6 +15,19 @@ class WalletTopUpRequest(BaseModel):
         return value or None
 
 
+class WalletAdjustRequest(BaseModel):
+    new_balance: float = Field(..., ge=0)
+    note: str | None = None
+
+    @field_validator("note")
+    @classmethod
+    def clean_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
 class WalletBalanceOut(BaseModel):
     worker_id: int
     balance: float
