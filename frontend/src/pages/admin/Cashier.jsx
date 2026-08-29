@@ -6,6 +6,26 @@ import { formatCurrency } from '../../utils/format'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
+// crypto.randomUUID() only exists in a secure context (HTTPS / localhost). The
+// admin panel is served over plain HTTP, where it's undefined and throws — so
+// fall back to getRandomValues (available on insecure origins), then Math.random.
+function makeClientRecordId() {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const b = crypto.getRandomValues(new Uint8Array(16))
+      b[6] = (b[6] & 0x0f) | 0x40
+      b[8] = (b[8] & 0x3f) | 0x80
+      const h = [...b].map(x => x.toString(16).padStart(2, '0'))
+      return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}`
+    }
+  } catch { /* fall through */ }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
+}
+
 // ── CheckoutSheet ─────────────────────────────────────────────────────────────
 function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
   const [q, setQ] = useState('')
@@ -37,7 +57,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
     try {
       const res = await api.post('/mobile/v1/cashier/sales/sync', {
         sales: [{
-          client_record_id: crypto.randomUUID(),
+          client_record_id: makeClientRecordId(),
           worker_employee_id: selected.employee_id,
           items: items.map(i => ({ product_id: i.id, quantity: i.quantity })),
         }],
