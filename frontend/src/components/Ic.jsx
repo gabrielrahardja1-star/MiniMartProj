@@ -39,6 +39,7 @@ export default function Ic({ name, size = 22, color = 'currentColor', stroke = 1
     case 'trend':   return wrap(<><path d="m4 17 5-5 4 4 7-8"/><path d="M14 8h6v6"/></>)
     case 'edit':    return wrap(<><path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13 5 4 4"/></>)
     case 'pkg':     return wrap(<><path d="M3 7v10l9 4 9-4V7"/><path d="m3 7 9 4 9-4-9-4-9 4Z"/><path d="M12 11v10"/></>)
+    case 'download': return wrap(<><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></>)
     default: return null
   }
 }

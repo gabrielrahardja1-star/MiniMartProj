@@ -4,6 +4,9 @@ import os
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session, joinedload
 from app.db.session import get_db
@@ -50,6 +53,64 @@ def admin_list_products(
         out.low_stock = p.stock <= LOW_STOCK_THRESHOLD
         result.append(out)
     return result
+
+
+@router.get("/products/export.xlsx")
+def admin_export_products_xlsx(
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """Whole catalogue as an .xlsx workbook, for stock-taking and offline
+    review. One row per product; 'Stock value' = price x stock."""
+    products = db.query(Product).order_by(Product.name).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Inventory"
+
+    headers = [
+        "SKU", "Name", "Name (中文)", "Category", "Category (中文)",
+        "Sub-category", "Brand", "Size", "Unit",
+        "Price (Rp)", "Stock", "Stock value (Rp)", "Active",
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+
+    for p in products:
+        price = float(p.price)
+        ws.append([
+            p.sku, p.name, p.name_zh or "",
+            p.category or "", p.category_zh or "",
+            p.sub_category or "", p.brand or "", p.size or "", p.unit,
+            price, p.stock, round(price * p.stock, 2),
+            "Yes" if p.is_active else "No",
+        ])
+        ws.cell(row=ws.max_row, column=10).number_format = "#,##0"
+        ws.cell(row=ws.max_row, column=12).number_format = "#,##0"
+
+    total_value = round(sum(float(p.price) * p.stock for p in products), 2)
+    total_row = ws.max_row + 2
+    ws.cell(row=total_row, column=9, value="TOTAL").font = Font(bold=True)
+    tv = ws.cell(row=total_row, column=12, value=total_value)
+    tv.font = Font(bold=True)
+    tv.number_format = "#,##0"
+
+    widths = [16, 34, 22, 16, 16, 16, 14, 10, 8, 14, 8, 16, 8]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="inventory_{stamp}.xlsx"'},
+    )
 
 
 def _generate_sku(db: Session) -> str:

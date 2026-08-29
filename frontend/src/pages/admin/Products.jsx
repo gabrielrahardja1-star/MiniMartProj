@@ -14,6 +14,7 @@ export default function AdminInventory() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const [catFilter, setCatFilter] = useState('all')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -26,6 +27,23 @@ export default function AdminInventory() {
     }
     load()
   }, [refreshKey])
+
+  async function downloadXlsx() {
+    setExporting(true)
+    try {
+      const res = await api.get('/admin/products/export.xlsx', { responseType: 'blob' })
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(res.data)
+      a.download = `inventory_${stamp}.xlsx`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function adjustStock(product, delta) {
     const newStock = Math.max(0, product.stock + delta)
@@ -87,12 +105,23 @@ export default function AdminInventory() {
           <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{products.length} products</div>
           <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>Inventory</div>
         </div>
-        <div onClick={openAddProduct} style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '10px 14px', borderRadius: 12, background: T.brand, color: '#fff',
-          fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
-        }}>
-          <Ic name="plus" size={15} color="#fff" /> Add item
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <div onClick={exporting ? undefined : downloadXlsx} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 14px', borderRadius: 12,
+            background: T.surface, border: `1px solid ${T.line}`, color: T.ink2,
+            fontSize: 13, fontWeight: 700,
+            cursor: exporting ? 'default' : 'pointer', opacity: exporting ? 0.5 : 1,
+          }}>
+            <Ic name="download" size={15} color={T.ink2} /> {exporting ? 'Exporting…' : 'Excel'}
+          </div>
+          <div onClick={openAddProduct} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 14px', borderRadius: 12, background: T.brand, color: '#fff',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <Ic name="plus" size={15} color="#fff" /> Add item
+          </div>
         </div>
       </div>
 
