@@ -77,25 +77,38 @@ export default function Reports() {
       .catch(() => toast.error('Export failed'))
   }
 
-  function downloadTransactions() {
-    if (txFrom && txTo && txFrom > txTo) {
+  async function downloadTransactions() {
+    if (!txFrom || !txTo) {
+      toast.error('Pick both dates')
+      return
+    }
+    if (txFrom > txTo) {
       toast.error('“From” date is after “To” date')
       return
     }
     setTxExporting(true)
-    const token = localStorage.getItem('token')
-    const url = `/api/admin/reports/transactions.xlsx?date_from=${txFrom}&date_to=${txTo}`
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => { if (!r.ok) throw new Error('export failed'); return r.blob() })
-      .then(blob => {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = `transactions_${txFrom}_${txTo}.xlsx`
-        a.click()
-        URL.revokeObjectURL(a.href)
-      })
-      .catch(() => toast.error('Export failed'))
-      .finally(() => setTxExporting(false))
+    try {
+      const token = localStorage.getItem('token')
+      const url = `/api/admin/reports/transactions.xlsx?date_from=${txFrom}&date_to=${txTo}`
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '')
+        throw new Error(detail || `HTTP ${res.status}`)
+      }
+      const blob = await res.blob()
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = `transactions_${txFrom}_${txTo}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      // keep the object URL alive until the browser has started the download
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(href) }, 2000)
+    } catch (err) {
+      toast.error(`Export failed: ${err.message}`)
+    } finally {
+      setTxExporting(false)
+    }
   }
 
   const total = report.reduce((s, r) => s + r.total_deduction, 0)

@@ -33,11 +33,13 @@ export default function AdminInventory() {
     try {
       const res = await api.get('/admin/products/export.xlsx', { responseType: 'blob' })
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const href = URL.createObjectURL(res.data)
       const a = document.createElement('a')
-      a.href = URL.createObjectURL(res.data)
+      a.href = href
       a.download = `inventory_${stamp}.xlsx`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(a.href)
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(href) }, 2000)
     } catch {
       toast.error('Export failed')
     } finally {
