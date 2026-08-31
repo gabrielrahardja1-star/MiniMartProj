@@ -146,7 +146,7 @@ def test_spending_csv_export(client, admin_token, worker_token, products):
     assert "W001" in lines[1]
 
 
-def _seed_cashier_sale(db_session, worker, product, quantity):
+def _seed_cashier_sale(db_session, worker, product, quantity, created_at=None):
     """A settled wallet sale + its ledger entry, written straight to the DB
     (the HTTP order path needs a pickup slot; a cashier sale doesn't)."""
     unit_price = float(product.price)
@@ -155,17 +155,22 @@ def _seed_cashier_sale(db_session, worker, product, quantity):
         payment_status="paid", payment_method="wallet",
         total=unit_price * quantity,
     )
+    if created_at is not None:
+        order.created_at = created_at
     db_session.add(order)
     db_session.flush()
     db_session.add(OrderItem(
         order_id=order.id, product_id=product.id, quantity=quantity,
         unit_price=unit_price, subtotal=unit_price * quantity,
     ))
-    db_session.add(WalletTransaction(
+    tx = WalletTransaction(
         worker_id=worker.id, type="payment", amount=unit_price * quantity,
         balance_after=0.0, order_id=order.id, performed_by_worker_id=worker.id,
         note="Cashier sale",
-    ))
+    )
+    if created_at is not None:
+        tx.created_at = created_at
+    db_session.add(tx)
     db_session.commit()
     return order
 
@@ -211,6 +216,30 @@ def test_transactions_xlsx_date_range_filters(client, admin_token, db_session, w
     sales = load_workbook(io.BytesIO(resp.content))["Sales"]
     data_rows = [r for r in sales.iter_rows(min_row=2, values_only=True) if r[0]]
     assert data_rows == []
+
+
+def test_transactions_xlsx_single_day_filter(client, admin_token, db_session, worker, products):
+    """date_from == date_to matches exactly that calendar day (naive-UTC, the
+    same instant range the rest of the app uses for that day) — including a
+    sale at 23:00, which must not spill into the next day."""
+    from datetime import datetime
+
+    _seed_cashier_sale(db_session, worker, products[0], 1,
+                       created_at=datetime(2026, 3, 14, 23, 0))   # late on the 14th
+    _seed_cashier_sale(db_session, worker, products[1], 1,
+                       created_at=datetime(2026, 3, 15, 8, 30))   # the 15th
+    _seed_cashier_sale(db_session, worker, products[0], 1,
+                       created_at=datetime(2026, 3, 16, 0, 30))   # early on the 16th
+
+    resp = client.get(
+        "/api/admin/reports/transactions.xlsx",
+        params={"date_from": "2026-03-15", "date_to": "2026-03-15"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    sales = load_workbook(io.BytesIO(resp.content))["Sales"]
+    rows = [r for r in sales.iter_rows(min_row=2, values_only=True) if r[0] and r[2]]
+    assert [(r[0], r[1]) for r in rows] == [("2026-03-15", "08:30")]
 
 
 def test_transactions_xlsx_rejects_worker(client, worker_token):

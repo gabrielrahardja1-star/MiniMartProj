@@ -712,11 +712,6 @@ def spending_report_csv(
     )
 
 
-# The store is in Indonesia (WIB, UTC+7). created_at columns are stored as
-# naive UTC; the transactions report groups and prints them in local time so
-# each row lands on the calendar day it actually happened in-store.
-_WIB = timedelta(hours=7)
-
 _ORDER_TYPE_LABELS = {"qris": "QRIS pre-order", "wallet": "Cashier sale"}
 _WTX_TYPE_LABELS = {
     "topup": "Top-up",
@@ -734,18 +729,21 @@ _MONEY_FMT = "#,##0"
 
 @router.get("/reports/transactions.xlsx")
 def transactions_export_xlsx(
-    date_from: date | None = Query(None, description="local (WIB) start date, inclusive"),
-    date_to: date | None = Query(None, description="local (WIB) end date, inclusive"),
+    date_from: date | None = Query(None, description="start date, inclusive"),
+    date_to: date | None = Query(None, description="end date, inclusive"),
     db: Session = Depends(get_db),
     _admin=Depends(require_admin),
 ):
     """Every sale (broken out to one row per line item) and every wallet
     movement in the date range, as a two-sheet .xlsx workbook for daily
-    bookkeeping. date_from/date_to are local (WIB) calendar dates; since
-    created_at is stored naive-UTC the window is shifted by the offset
-    before querying."""
-    start_utc = datetime.combine(date_from, time.min) - _WIB if date_from else None
-    end_utc = datetime.combine(date_to, time.min) + timedelta(days=1) - _WIB if date_to else None
+    bookkeeping.
+
+    created_at is stored (and shown everywhere else in the app) as naive
+    UTC, so date_from/date_to are matched against it directly — a given
+    calendar day here is the same instant range the order list, dashboard
+    and spending report use for that day."""
+    start = datetime.combine(date_from, time.min) if date_from else None
+    end = datetime.combine(date_to, time.min) + timedelta(days=1) if date_to else None
 
     order_q = db.query(Order).options(
         joinedload(Order.worker),
@@ -755,12 +753,12 @@ def transactions_export_xlsx(
         joinedload(WalletTransaction.worker),
         joinedload(WalletTransaction.performed_by),
     )
-    if start_utc is not None:
-        order_q = order_q.filter(Order.created_at >= start_utc)
-        wtx_q = wtx_q.filter(WalletTransaction.created_at >= start_utc)
-    if end_utc is not None:
-        order_q = order_q.filter(Order.created_at < end_utc)
-        wtx_q = wtx_q.filter(WalletTransaction.created_at < end_utc)
+    if start is not None:
+        order_q = order_q.filter(Order.created_at >= start)
+        wtx_q = wtx_q.filter(WalletTransaction.created_at >= start)
+    if end is not None:
+        order_q = order_q.filter(Order.created_at < end)
+        wtx_q = wtx_q.filter(WalletTransaction.created_at < end)
 
     orders = order_q.order_by(Order.created_at, Order.id).all()
     wtxs = wtx_q.order_by(WalletTransaction.created_at, WalletTransaction.id).all()
@@ -782,7 +780,6 @@ def transactions_export_xlsx(
     sales_total = 0.0
     sales_total_active = 0.0  # excludes cancelled orders
     for o in orders:
-        local_dt = o.created_at + _WIB
         otype = _ORDER_TYPE_LABELS.get(o.payment_method or "", o.payment_method or "—")
         for it in sorted(o.items, key=lambda x: x.product.name if x.product else ""):
             line_total = float(it.subtotal)
@@ -790,8 +787,8 @@ def transactions_export_xlsx(
             if o.status != "cancelled":
                 sales_total_active += line_total
             ws.append([
-                local_dt.strftime("%Y-%m-%d"),
-                local_dt.strftime("%H:%M"),
+                o.created_at.strftime("%Y-%m-%d"),
+                o.created_at.strftime("%H:%M"),
                 o.id, otype, o.status, o.payment_status,
                 o.worker.employee_id if o.worker else "",
                 o.worker.name if o.worker else "",
@@ -825,12 +822,11 @@ def transactions_export_xlsx(
 
     wtx_net = 0.0
     for tx in wtxs:
-        local_dt = tx.created_at + _WIB
         signed = -float(tx.amount) if tx.type in _WTX_NEGATIVE else float(tx.amount)
         wtx_net += signed
         ws2.append([
-            local_dt.strftime("%Y-%m-%d"),
-            local_dt.strftime("%H:%M"),
+            tx.created_at.strftime("%Y-%m-%d"),
+            tx.created_at.strftime("%H:%M"),
             _WTX_TYPE_LABELS.get(tx.type, tx.type),
             tx.worker.employee_id if tx.worker else "",
             tx.worker.name if tx.worker else "",

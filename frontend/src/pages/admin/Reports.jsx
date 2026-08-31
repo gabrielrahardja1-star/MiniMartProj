@@ -39,18 +39,15 @@ function BarChart({ data, maxValue }) {
   )
 }
 
-// Local (not UTC) YYYY-MM-DD — the export groups days in the store's timezone.
-function isoDate(d) {
-  const pad = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
 export default function Reports() {
   const [report, setReport] = useState([])
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const [loading, setLoading] = useState(false)
 
-  const today = isoDate(new Date())
+  // Matches how `month` above is derived, and how the backend stores
+  // created_at (naive UTC) — keeps the export's "day" in step with the
+  // order list and spending report.
+  const today = new Date().toISOString().slice(0, 10)
   const [txFrom, setTxFrom] = useState(today.slice(0, 8) + '01')
   const [txTo, setTxTo] = useState(today)
   const [txExporting, setTxExporting] = useState(false)
@@ -141,7 +138,7 @@ export default function Reports() {
               <h3 className="text-sm font-semibold text-slate-700">Transactions export</h3>
             </div>
             <p className="text-xs text-slate-400">
-              Every sale line item and wallet movement in the range, as a two-sheet Excel workbook. Days are grouped in store time (WIB).
+              Every sale line item and wallet movement in the range, as a two-sheet Excel workbook. Pick the same day in both fields for a single day.
             </p>
           </div>
           <div className="flex items-end gap-2">
