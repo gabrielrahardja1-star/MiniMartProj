@@ -1,7 +1,7 @@
 import csv
 import io
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
@@ -709,4 +709,154 @@ def spending_report_csv(
         buf,
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# The store is in Indonesia (WIB, UTC+7). created_at columns are stored as
+# naive UTC; the transactions report groups and prints them in local time so
+# each row lands on the calendar day it actually happened in-store.
+_WIB = timedelta(hours=7)
+
+_ORDER_TYPE_LABELS = {"qris": "QRIS pre-order", "wallet": "Cashier sale"}
+_WTX_TYPE_LABELS = {
+    "topup": "Top-up",
+    "payment": "Payment",
+    "refund": "Refund",
+    "reversal": "Reversal",
+    "adjustment_credit": "Adjustment (+)",
+    "adjustment_debit": "Adjustment (−)",
+}
+# types that move a worker's balance down — shown as a negative amount
+_WTX_NEGATIVE = {"payment", "reversal", "adjustment_debit"}
+
+_MONEY_FMT = "#,##0"
+
+
+@router.get("/reports/transactions.xlsx")
+def transactions_export_xlsx(
+    date_from: date | None = Query(None, description="local (WIB) start date, inclusive"),
+    date_to: date | None = Query(None, description="local (WIB) end date, inclusive"),
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """Every sale (broken out to one row per line item) and every wallet
+    movement in the date range, as a two-sheet .xlsx workbook for daily
+    bookkeeping. date_from/date_to are local (WIB) calendar dates; since
+    created_at is stored naive-UTC the window is shifted by the offset
+    before querying."""
+    start_utc = datetime.combine(date_from, time.min) - _WIB if date_from else None
+    end_utc = datetime.combine(date_to, time.min) + timedelta(days=1) - _WIB if date_to else None
+
+    order_q = db.query(Order).options(
+        joinedload(Order.worker),
+        joinedload(Order.items).joinedload(OrderItem.product),
+    )
+    wtx_q = db.query(WalletTransaction).options(
+        joinedload(WalletTransaction.worker),
+        joinedload(WalletTransaction.performed_by),
+    )
+    if start_utc is not None:
+        order_q = order_q.filter(Order.created_at >= start_utc)
+        wtx_q = wtx_q.filter(WalletTransaction.created_at >= start_utc)
+    if end_utc is not None:
+        order_q = order_q.filter(Order.created_at < end_utc)
+        wtx_q = wtx_q.filter(WalletTransaction.created_at < end_utc)
+
+    orders = order_q.order_by(Order.created_at, Order.id).all()
+    wtxs = wtx_q.order_by(WalletTransaction.created_at, WalletTransaction.id).all()
+
+    wb = Workbook()
+
+    # ── Sheet 1: Sales — one row per order line item ─────────────────────────
+    ws = wb.active
+    ws.title = "Sales"
+    ws.append([
+        "Date", "Time", "Order #", "Type", "Status", "Payment",
+        "Employee ID", "Worker", "SKU", "Product",
+        "Qty", "Unit price (Rp)", "Line total (Rp)",
+    ])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+
+    sales_total = 0.0
+    sales_total_active = 0.0  # excludes cancelled orders
+    for o in orders:
+        local_dt = o.created_at + _WIB
+        otype = _ORDER_TYPE_LABELS.get(o.payment_method or "", o.payment_method or "—")
+        for it in sorted(o.items, key=lambda x: x.product.name if x.product else ""):
+            line_total = float(it.subtotal)
+            sales_total += line_total
+            if o.status != "cancelled":
+                sales_total_active += line_total
+            ws.append([
+                local_dt.strftime("%Y-%m-%d"),
+                local_dt.strftime("%H:%M"),
+                o.id, otype, o.status, o.payment_status,
+                o.worker.employee_id if o.worker else "",
+                o.worker.name if o.worker else "",
+                it.product.sku if it.product else "",
+                it.product.name if it.product else f"Product #{it.product_id}",
+                it.quantity, float(it.unit_price), line_total,
+            ])
+            ws.cell(row=ws.max_row, column=12).number_format = _MONEY_FMT
+            ws.cell(row=ws.max_row, column=13).number_format = _MONEY_FMT
+
+    trow = ws.max_row + 2
+    ws.cell(row=trow, column=10, value="TOTAL").font = Font(bold=True)
+    tc = ws.cell(row=trow, column=13, value=round(sales_total, 2))
+    tc.font, tc.number_format = Font(bold=True), _MONEY_FMT
+    ws.cell(row=trow + 1, column=10, value="TOTAL (excl. cancelled)").font = Font(bold=True)
+    tc = ws.cell(row=trow + 1, column=13, value=round(sales_total_active, 2))
+    tc.font, tc.number_format = Font(bold=True), _MONEY_FMT
+
+    for i, w in enumerate([12, 7, 8, 15, 11, 10, 13, 20, 12, 30, 6, 15, 15], start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    # ── Sheet 2: Wallet movements — one row per wallet_transaction ────────────
+    ws2 = wb.create_sheet("Wallet movements")
+    ws2.append([
+        "Date", "Time", "Type", "Employee ID", "Worker",
+        "Amount (Rp)", "Balance after (Rp)", "Order #", "Performed by", "Note",
+    ])
+    for cell in ws2[1]:
+        cell.font = Font(bold=True)
+    ws2.freeze_panes = "A2"
+
+    wtx_net = 0.0
+    for tx in wtxs:
+        local_dt = tx.created_at + _WIB
+        signed = -float(tx.amount) if tx.type in _WTX_NEGATIVE else float(tx.amount)
+        wtx_net += signed
+        ws2.append([
+            local_dt.strftime("%Y-%m-%d"),
+            local_dt.strftime("%H:%M"),
+            _WTX_TYPE_LABELS.get(tx.type, tx.type),
+            tx.worker.employee_id if tx.worker else "",
+            tx.worker.name if tx.worker else "",
+            round(signed, 2), float(tx.balance_after),
+            tx.order_id or "",
+            tx.performed_by.name if tx.performed_by else "",
+            tx.note or "",
+        ])
+        ws2.cell(row=ws2.max_row, column=6).number_format = _MONEY_FMT
+        ws2.cell(row=ws2.max_row, column=7).number_format = _MONEY_FMT
+
+    trow2 = ws2.max_row + 2
+    ws2.cell(row=trow2, column=5, value="NET MOVEMENT").font = Font(bold=True)
+    nc = ws2.cell(row=trow2, column=6, value=round(wtx_net, 2))
+    nc.font, nc.number_format = Font(bold=True), _MONEY_FMT
+
+    for i, w in enumerate([12, 7, 16, 13, 20, 15, 16, 9, 18, 32], start=1):
+        ws2.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    span = f"{date_from}_{date_to}" if date_from and date_to else "all"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="transactions_{span}.xlsx"'},
     )

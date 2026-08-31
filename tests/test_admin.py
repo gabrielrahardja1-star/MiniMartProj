@@ -1,6 +1,11 @@
 """Module 05 — Admin Dashboard API tests."""
 
-from app.models.order import Order
+import io
+
+from openpyxl import load_workbook
+
+from app.models.order import Order, OrderItem
+from app.models.wallet import WalletTransaction
 
 
 def _place_order(client, worker_token, product_id, quantity):
@@ -139,6 +144,81 @@ def test_spending_csv_export(client, admin_token, worker_token, products):
     lines = resp.text.strip().splitlines()
     assert lines[0] == "worker_name,employee_id,total_deduction,month"
     assert "W001" in lines[1]
+
+
+def _seed_cashier_sale(db_session, worker, product, quantity):
+    """A settled wallet sale + its ledger entry, written straight to the DB
+    (the HTTP order path needs a pickup slot; a cashier sale doesn't)."""
+    unit_price = float(product.price)
+    order = Order(
+        worker_id=worker.id, status="fulfilled",
+        payment_status="paid", payment_method="wallet",
+        total=unit_price * quantity,
+    )
+    db_session.add(order)
+    db_session.flush()
+    db_session.add(OrderItem(
+        order_id=order.id, product_id=product.id, quantity=quantity,
+        unit_price=unit_price, subtotal=unit_price * quantity,
+    ))
+    db_session.add(WalletTransaction(
+        worker_id=worker.id, type="payment", amount=unit_price * quantity,
+        balance_after=0.0, order_id=order.id, performed_by_worker_id=worker.id,
+        note="Cashier sale",
+    ))
+    db_session.commit()
+    return order
+
+
+def test_transactions_xlsx_export(client, admin_token, db_session, worker, products):
+    _seed_cashier_sale(db_session, worker, products[0], 2)  # Work Gloves @ 5.50
+    resp = client.get(
+        "/api/admin/reports/transactions.xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "spreadsheetml" in resp.headers["content-type"]
+    assert resp.headers["content-disposition"].endswith('transactions_all.xlsx"')
+
+    wb = load_workbook(io.BytesIO(resp.content))
+    assert wb.sheetnames == ["Sales", "Wallet movements"]
+
+    sales = wb["Sales"]
+    assert [c.value for c in sales[1]][:4] == ["Date", "Time", "Order #", "Type"]
+    row = [c.value for c in sales[2]]
+    assert row[3] == "Cashier sale"      # Type
+    assert row[6] == "W001"              # Employee ID
+    assert row[9] == "Work Gloves"       # Product
+    assert row[10] == 2                  # Qty
+    assert row[12] == 11.0              # Line total (2 x 5.50)
+
+    wallet = wb["Wallet movements"]
+    wrow = [c.value for c in wallet[2]]
+    assert wrow[2] == "Payment"
+    assert wrow[5] == -11.0             # payment shown as a negative amount
+
+
+def test_transactions_xlsx_date_range_filters(client, admin_token, db_session, worker, products):
+    _seed_cashier_sale(db_session, worker, products[0], 1)
+    # a window entirely in the past should contain no sale rows
+    resp = client.get(
+        "/api/admin/reports/transactions.xlsx",
+        params={"date_from": "2020-01-01", "date_to": "2020-01-31"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-disposition"].endswith('transactions_2020-01-01_2020-01-31.xlsx"')
+    sales = load_workbook(io.BytesIO(resp.content))["Sales"]
+    data_rows = [r for r in sales.iter_rows(min_row=2, values_only=True) if r[0]]
+    assert data_rows == []
+
+
+def test_transactions_xlsx_rejects_worker(client, worker_token):
+    resp = client.get(
+        "/api/admin/reports/transactions.xlsx",
+        headers={"Authorization": f"Bearer {worker_token}"},
+    )
+    assert resp.status_code == 403
 
 
 def test_admin_routes_reject_worker(client, worker_token):

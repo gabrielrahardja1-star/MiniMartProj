@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, Calendar, TrendingUp, Users, ShoppingBag } from 'lucide-react'
+import { Download, Calendar, TrendingUp, Users, ShoppingBag, FileSpreadsheet } from 'lucide-react'
 import { formatCurrency, formatMonth } from '../../utils/format'
 import Button from '../../components/Button'
 import PageHeader from '../../components/PageHeader'
@@ -39,10 +39,21 @@ function BarChart({ data, maxValue }) {
   )
 }
 
+// Local (not UTC) YYYY-MM-DD — the export groups days in the store's timezone.
+function isoDate(d) {
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 export default function Reports() {
   const [report, setReport] = useState([])
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const [loading, setLoading] = useState(false)
+
+  const today = isoDate(new Date())
+  const [txFrom, setTxFrom] = useState(today.slice(0, 8) + '01')
+  const [txTo, setTxTo] = useState(today)
+  const [txExporting, setTxExporting] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -67,6 +78,27 @@ export default function Reports() {
         a.click()
       })
       .catch(() => toast.error('Export failed'))
+  }
+
+  function downloadTransactions() {
+    if (txFrom && txTo && txFrom > txTo) {
+      toast.error('“From” date is after “To” date')
+      return
+    }
+    setTxExporting(true)
+    const token = localStorage.getItem('token')
+    const url = `/api/admin/reports/transactions.xlsx?date_from=${txFrom}&date_to=${txTo}`
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => { if (!r.ok) throw new Error('export failed'); return r.blob() })
+      .then(blob => {
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `transactions_${txFrom}_${txTo}.xlsx`
+        a.click()
+        URL.revokeObjectURL(a.href)
+      })
+      .catch(() => toast.error('Export failed'))
+      .finally(() => setTxExporting(false))
   }
 
   const total = report.reduce((s, r) => s + r.total_deduction, 0)
@@ -99,6 +131,51 @@ export default function Reports() {
           </div>
         }
       />
+
+      {/* Transactions export */}
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-slate-100">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <FileSpreadsheet size={15} className="text-slate-400" />
+              <h3 className="text-sm font-semibold text-slate-700">Transactions export</h3>
+            </div>
+            <p className="text-xs text-slate-400">
+              Every sale line item and wallet movement in the range, as a two-sheet Excel workbook. Days are grouped in store time (WIB).
+            </p>
+          </div>
+          <div className="flex items-end gap-2">
+            <label className="flex flex-col text-xs text-slate-500 font-medium gap-1">
+              From
+              <input
+                type="date"
+                value={txFrom}
+                max={txTo || undefined}
+                onChange={e => setTxFrom(e.target.value)}
+                className="border-2 border-slate-200 focus:border-amber-400 rounded-xl px-3 py-2 text-sm focus:outline-none transition-colors duration-150 text-slate-700"
+              />
+            </label>
+            <label className="flex flex-col text-xs text-slate-500 font-medium gap-1">
+              To
+              <input
+                type="date"
+                value={txTo}
+                min={txFrom || undefined}
+                onChange={e => setTxTo(e.target.value)}
+                className="border-2 border-slate-200 focus:border-amber-400 rounded-xl px-3 py-2 text-sm focus:outline-none transition-colors duration-150 text-slate-700"
+              />
+            </label>
+            <Button
+              variant="secondary"
+              icon={Download}
+              onClick={downloadTransactions}
+              loading={txExporting}
+            >
+              {txExporting ? 'Exporting…' : 'Excel'}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
