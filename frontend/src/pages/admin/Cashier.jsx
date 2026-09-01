@@ -4,6 +4,7 @@ import { T, FONT } from '../../utils/theme'
 import Ic from '../../components/Ic'
 import { ProductThumb } from './Layout'
 import { formatCurrency } from '../../utils/format'
+import { getProductName } from '../../utils/product'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
@@ -240,7 +241,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
 
 // ── Cashier ───────────────────────────────────────────────────────────────────
 export default function Cashier() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [products, setProducts] = useState([])
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -346,7 +347,7 @@ export default function Cashier() {
                   )}
                 </div>
                 <div style={{ padding: '4px 12px 12px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ color: T.ink, fontSize: 13, fontWeight: 600, lineHeight: 1.25 }}>{p.name}</div>
+                  <div style={{ color: T.ink, fontSize: 13, fontWeight: 600, lineHeight: 1.25 }}>{getProductName(p, i18n.language)}</div>
                   <div style={{ color: T.ink3, fontSize: 11, marginTop: 2 }}>{p.unit} · {t('admin.cashier.inStockShort', { count: p.stock })}</div>
                   <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>{formatCurrency(p.price)}</div>
