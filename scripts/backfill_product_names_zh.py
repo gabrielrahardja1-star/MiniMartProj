@@ -2,8 +2,11 @@
 """Apply the reviewed Chinese product names (中文名称（建议）, 2026-09-01).
 
 For every product below we set `name_zh` to the reviewed translation, overwriting
-whatever was there. Five products that had Chinese text sitting in the Latin
-`name` column (no `name_zh` at all) also get a real Latin `name`.
+whatever was there. Products that had Chinese text sitting in the Latin `name`
+column (no real `name_zh`) also get a clean Latin `name`.
+
+Covers the full 65-item production catalog. Products absent from a given DB are
+reported and skipped (the smaller dev DB only has the first 41).
 
 Matching is by SKU; each row carries a `guard` substring that must appear in the
 current `name` or `name_zh` as a safety check before anything is written.
@@ -68,6 +71,31 @@ UPDATES = {
     "MMI-063": ("Paseo", None, "Paseo Smart 抽取式面巾纸"),
     "MMI-065": ("Larisst", None, "Larisst 扫帚"),
     "MMI-067": ("Mustika Ratu", None, "Mustika Ratu 橄榄护理油"),
+    # --- items 42-65: only present in the full production catalog ---
+    "MMI-072": ("Teh Sosro", None, "Teh Sosro 茶包"),
+    "MMI-073": ("Teh Pucuk", None, "Teh Pucuk Harum 茉莉花茶饮料"),
+    "MMI-020": ("Yakult", None, "养乐多低糖乳酸菌饮料"),
+    "MMI-075": ("HaloChoco", "Es krim HaloChoco", "HaloChoco 巧克力冰淇淋"),
+    "MMI-074": ("Halo Cookies", "Es krim Halo Cookies", "Halo 曲奇冰淇淋"),
+    "MMI-076": ("Tiger Choco", "Es krim Tiger Choco", "Tiger Choco 巧克力冰淇淋"),
+    "MMI-077": ("KastilEs", "Es krim KastilEs Yogurt", "KastilEs 酸奶味冰淇淋"),
+    "MMI-078": ("PisCok", "ES KRIM PisCok Krispi", "脆皮香蕉巧克力冰淇淋"),
+    "MMI-079": ("Fantasy Almond", "Es krim Fantasy Almond", "Fantasy 杏仁巧克力冰淇淋"),
+    "MMI-080": ("Tiramisu Cookies", "Es krim Tiramisu Cookies", "提拉米苏曲奇冰淇淋"),
+    "MMI-085": ("Jus buah jeruk", None, "橙汁饮料"),
+    "MMI-081": ("Beng Beng kecil", None, "Beng Beng 小包装巧克力威化"),
+    "MMI-082": ("Larutan cap kaki 3", None, "Cap Kaki Tiga 三脚牌清凉饮料 320毫升"),
+    "MMI-083": ("Nissin", None, "Nissin 日清脆饼干"),
+    "MMI-084": ("Roma Malkist", None, "Roma Malkist 肉松苏打饼干"),
+    "MMI-086": ("Dilan", None, "Dilan 曲奇饼干"),
+    "MMI-O86": ("Lee Kum Kee", None, "李锦记酱油（生抽）"),  # SKU really has a letter O
+    "MMI-087": ("HIT Spray", None, "HIT 杀虫喷雾 600毫升"),
+    "MMI-088": ("Soffell", None, "Soffell 驱蚊液"),
+    "MMI-089": ("Nongshin", None, "农心辛拉面"),
+    "MMI-016": ("Floridina", None, "Floridina 橙汁果粒饮料"),
+    "MMI-090": ("ABC Sari kacang hijau", None, "ABC 绿豆饮料 250毫升"),
+    "MMI-091": ("Good Day Cappucino", None, "Good Day 卡布奇诺咖啡 250克"),
+    "MMI-092": ("Luwak Less Sugar", None, "Luwak 低糖白咖啡 19包"),
 }
 
 argv = sys.argv[1:]
@@ -85,12 +113,13 @@ def main():
           (DBPATH, len(rows), "COMMIT" if COMMIT else "DRY-RUN"))
 
     changes = []   # (id, sku, field, old, new)
-    problems = []
+    problems = []   # blocks a commit
+    skipped = []    # sku not in this db - just informational
 
     for sku, (guard, new_name, new_zh) in UPDATES.items():
         r = rows.get(sku)
         if r is None:
-            problems.append("%s not found in this db" % sku)
+            skipped.append(sku)
             continue
         hay = "%s %s" % (r["name"] or "", r["name_zh"] or "")
         if guard not in hay:
@@ -105,6 +134,10 @@ def main():
         print("#%-3d %-9s %-8s %r -> %r" % (pid, sku, field, old, new))
     print("\n%d field update(s) across %d product(s)" %
           (len(changes), len({c[0] for c in changes})))
+
+    if skipped:
+        print("\n(%d SKU(s) not in this db, skipped: %s)" %
+              (len(skipped), ", ".join(skipped)))
 
     if problems:
         print("\n!! %d problem(s):" % len(problems))
