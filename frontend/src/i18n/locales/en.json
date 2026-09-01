@@ -242,7 +242,11 @@
       "saved": "Sale updated",
       "saveFail": "Failed to save changes",
       "noBalance": "{{name}} doesn't have enough balance",
-      "empty": "A sale needs at least one item"
+      "empty": "A sale needs at least one item",
+      "delete": "Delete sale",
+      "deleteConfirm": "Delete sale #{{id}}? Stock is returned and {{name}}'s wallet is refunded {{amount}}. This can't be undone.",
+      "deleted": "Sale deleted",
+      "deleteFail": "Failed to delete sale"
     },
     "cashier": {
       "title": "Cashier",

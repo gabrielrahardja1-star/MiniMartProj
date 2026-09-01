@@ -22,6 +22,7 @@ export default function EditSaleSheet({ order, open, onClose, onSaved }) {
   const [date, setDate] = useState(todayStr())
   const [q, setQ] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -98,6 +99,26 @@ export default function EditSaleSheet({ order, open, onClose, onSaved }) {
       toast.error(err.response?.data?.detail || t('admin.editSale.saveFail'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function del() {
+    const ok = window.confirm(t('admin.editSale.deleteConfirm', {
+      id: order.id,
+      name: order.worker_name,
+      amount: formatCurrency(oldTotal),
+    }))
+    if (!ok) return
+    setDeleting(true)
+    try {
+      await api.post(`/admin/orders/${order.id}/refund`)
+      toast.success(t('admin.editSale.deleted'))
+      onSaved()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.detail || t('admin.editSale.deleteFail'))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -238,6 +259,11 @@ export default function EditSaleSheet({ order, open, onClose, onSaved }) {
               {delta > 0 ? '−' : delta < 0 ? '+' : ''}{formatCurrency(Math.abs(delta))}
             </span>
           </div>
+          <div onClick={() => !deleting && !saving && del()} style={{
+            padding: 13, borderRadius: 14, background: T.badSoft, color: T.bad,
+            fontSize: 14, fontWeight: 700, textAlign: 'center', marginBottom: 10,
+            cursor: deleting || saving ? 'default' : 'pointer', opacity: deleting || saving ? 0.6 : 1,
+          }}>{deleting ? t('admin.common.saving') : t('admin.editSale.delete')}</div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div onClick={onClose} style={{
               flex: 1, padding: 15, borderRadius: 16, background: T.surfaceAlt, color: T.ink2,
