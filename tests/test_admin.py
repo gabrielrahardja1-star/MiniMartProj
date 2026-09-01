@@ -410,3 +410,64 @@ def test_backdated_topup_rejects_future(client, admin_token, worker):
         json={"amount": 500, "occurred_at": "2099-01-01T00:00:00"},
     )
     assert resp.status_code == 400
+
+
+def test_delete_cashier_sale_removes_it_and_reverses(client, admin_token, db_session, worker, products):
+    product = products[0]  # Work Gloves @ 5.50, stock 10
+    worker.balance = 89.0   # 100 - 11 after the sale
+    product.stock = 8       # 10 - 2 after the sale
+    db_session.commit()
+    order = _seed_cashier_sale(db_session, worker, product, 2)  # total 11.00
+
+    resp = client.delete(
+        f"/api/admin/orders/{order.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["wallet_refunded"] == 11.0
+
+    assert db_session.get(Order, order.id) is None
+    assert db_session.query(OrderItem).filter(OrderItem.order_id == order.id).count() == 0
+    assert db_session.query(WalletTransaction).filter(WalletTransaction.order_id == order.id).count() == 0
+
+    db_session.refresh(product)
+    assert product.stock == 10  # restored
+    db_session.refresh(worker)
+    assert float(worker.balance) == 100.0  # refunded
+    refund = db_session.query(WalletTransaction).filter(WalletTransaction.type == "refund").one()
+    assert refund.order_id is None and float(refund.amount) == 11.0
+
+
+def test_delete_cancelled_cashier_sale_just_removes_it(client, admin_token, db_session, worker, products):
+    product = products[0]
+    worker.balance = 50.0
+    db_session.commit()
+    order = _seed_cashier_sale(db_session, worker, product, 1)
+    order.status = "cancelled"
+    db_session.commit()
+
+    resp = client.delete(
+        f"/api/admin/orders/{order.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["stock_restored"] is False
+    assert db_session.get(Order, order.id) is None
+    db_session.refresh(product)
+    assert product.stock == 10  # untouched — cancel already handled it
+    db_session.refresh(worker)
+    assert float(worker.balance) == 50.0
+
+
+def test_delete_rejects_non_wallet_order(client, admin_token, db_session, worker, products):
+    order = Order(
+        worker_id=worker.id, status="pending",
+        payment_status="paid", payment_method="qris", total=5.50,
+    )
+    db_session.add(order)
+    db_session.commit()
+    resp = client.delete(
+        f"/api/admin/orders/{order.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 400

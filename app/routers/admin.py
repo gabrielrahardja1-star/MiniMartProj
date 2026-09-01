@@ -561,6 +561,78 @@ def edit_cashier_sale(
     return _build_order_out(fresh)
 
 
+@router.delete("/orders/{order_id}")
+def delete_cashier_sale(
+    order_id: int,
+    db: Session = Depends(get_db),
+    admin: Worker = Depends(require_admin),
+):
+    """Hard-delete a cashier (wallet) till sale: the order, its line items and
+    its wallet-ledger rows are removed from the database entirely. If the sale
+    was still live, product stock is put back and the worker's wallet is
+    refunded its total first (a single order-less "refund" ledger row records
+    the money movement). Already-cancelled sales were reversed when cancelled,
+    so those are just deleted.
+
+    QRIS web pre-orders are not deletable this way — use cancel/refund."""
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.id == order_id)
+        .with_for_update()
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.payment_method != "wallet":
+        raise HTTPException(status_code=400, detail="Only cashier (wallet) sales can be deleted")
+
+    oid = order.id
+    total = float(order.total)
+    worker_id = order.worker_id
+    was_live = order.status != "cancelled"
+    refunded = 0.0
+
+    if was_live:
+        for it in order.items:
+            product = (
+                db.query(Product).filter(Product.id == it.product_id).with_for_update().first()
+            )
+            if product:
+                product.stock += it.quantity
+
+        worker = (
+            db.query(Worker).filter(Worker.id == worker_id).with_for_update().first()
+        )
+        if worker:
+            worker.balance = round(float(worker.balance) + total, 2)
+            refunded = total
+            db.add(WalletTransaction(
+                worker_id=worker.id,
+                type="refund",
+                amount=total,
+                balance_after=worker.balance,
+                order_id=None,
+                performed_by_worker_id=admin.id,
+                note=f"Deleted till sale #{oid}",
+            ))
+
+    db.query(WalletTransaction).filter(WalletTransaction.order_id == oid).delete(
+        synchronize_session=False
+    )
+    for it in list(order.items):
+        db.delete(it)
+    db.delete(order)
+    db.commit()
+
+    return {
+        "deleted_order_id": oid,
+        "worker_id": worker_id,
+        "stock_restored": was_live,
+        "wallet_refunded": refunded,
+    }
+
+
 # ── Workers ───────────────────────────────────────────────────────────────────
 
 @router.get("/workers/", response_model=list[WorkerOut])

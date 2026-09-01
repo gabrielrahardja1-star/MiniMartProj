@@ -244,7 +244,7 @@
       "noBalance": "{{name}} 余额不足",
       "empty": "销售至少需要一件商品",
       "delete": "删除销售",
-      "deleteConfirm": "删除销售 #{{id}}？库存将退回，{{name}} 的钱包将退款 {{amount}}。此操作无法撤销。",
+      "deleteConfirm": "永久删除销售 #{{id}}？库存将退回，{{name}} 的钱包将退款 {{amount}}。该销售记录将被彻底清除，此操作无法撤销。",
       "deleted": "销售已删除",
       "deleteFail": "删除销售失败"
     },

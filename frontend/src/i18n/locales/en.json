@@ -244,7 +244,7 @@
       "noBalance": "{{name}} doesn't have enough balance",
       "empty": "A sale needs at least one item",
       "delete": "Delete sale",
-      "deleteConfirm": "Delete sale #{{id}}? Stock is returned and {{name}}'s wallet is refunded {{amount}}. This can't be undone.",
+      "deleteConfirm": "Permanently delete sale #{{id}}? Stock is returned and {{name}}'s wallet is refunded {{amount}}. The sale is erased from the records — this can't be undone.",
       "deleted": "Sale deleted",
       "deleteFail": "Failed to delete sale"
     },

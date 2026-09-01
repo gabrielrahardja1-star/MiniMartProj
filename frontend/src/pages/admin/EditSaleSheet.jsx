@@ -111,7 +111,7 @@ export default function EditSaleSheet({ order, open, onClose, onSaved }) {
     if (!ok) return
     setDeleting(true)
     try {
-      await api.post(`/admin/orders/${order.id}/refund`)
+      await api.delete(`/admin/orders/${order.id}`)
       toast.success(t('admin.editSale.deleted'))
       onSaved()
       onClose()
