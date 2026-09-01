@@ -17,6 +17,7 @@ export default function AdminInventory() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const [catFilter, setCatFilter] = useState('all')
+  const [sort, setSort] = useState('default')
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
@@ -94,12 +95,25 @@ export default function AdminInventory() {
       p.category?.toLowerCase().includes(needle)
     )
   }
+  if (sort !== 'default') {
+    const dir = sort.endsWith('Asc') ? 1 : -1
+    const key = sort.startsWith('stock') ? 'stock' : 'price'
+    list = [...list].sort((a, b) => (Number(a[key]) - Number(b[key])) * dir)
+  }
 
   const chips = [
     { id: 'all',      label: t('admin.inventory.filterAll'),      count: products.length },
     { id: 'low',      label: t('admin.inventory.filterLow'),      count: lowCount,       color: T.warn },
     { id: 'out',      label: t('admin.inventory.filterOut'),      count: outCount,       color: T.bad },
     { id: 'inactive', label: t('admin.inventory.filterInactive'), count: inactiveCount,  color: T.ink3 },
+  ]
+
+  const sortChips = [
+    { id: 'default',   label: t('admin.inventory.sortDefault') },
+    { id: 'stockAsc',  label: t('admin.inventory.sortStockAsc') },
+    { id: 'stockDesc', label: t('admin.inventory.sortStockDesc') },
+    { id: 'priceAsc',  label: t('admin.inventory.sortPriceAsc') },
+    { id: 'priceDesc', label: t('admin.inventory.sortPriceDesc') },
   ]
 
   return (
@@ -209,6 +223,27 @@ export default function AdminInventory() {
           </div>
         </div>
       )}
+
+      {/* Sort chips */}
+      <div style={{ padding: '0 0 14px' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
+          <span style={{ color: T.ink3, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{t('admin.inventory.sortLabel')}</span>
+          {sortChips.map(c => {
+            const active = sort === c.id
+            return (
+              <div key={c.id} onClick={() => setSort(c.id)} style={{
+                padding: '9px 14px', borderRadius: 999,
+                background: active ? T.ink : T.surface,
+                border: `1px solid ${active ? T.ink : T.line}`,
+                color: active ? '#fff' : T.ink2,
+                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, cursor: 'pointer',
+              }}>
+                {c.label}
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Product list */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>

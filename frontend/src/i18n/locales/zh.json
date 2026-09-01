@@ -281,7 +281,13 @@
       "out": "缺货",
       "stock": "库存",
       "edit": "编辑",
-      "exportFail": "导出失败"
+      "exportFail": "导出失败",
+      "sortLabel": "排序",
+      "sortDefault": "默认",
+      "sortStockAsc": "库存 ↑",
+      "sortStockDesc": "库存 ↓",
+      "sortPriceAsc": "价格 ↑",
+      "sortPriceDesc": "价格 ↓"
     },
     "editProduct": {
       "title": "编辑商品",

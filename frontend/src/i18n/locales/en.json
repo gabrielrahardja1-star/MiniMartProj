@@ -281,7 +281,13 @@
       "out": "Out",
       "stock": "Stock",
       "edit": "Edit",
-      "exportFail": "Export failed"
+      "exportFail": "Export failed",
+      "sortLabel": "Sort",
+      "sortDefault": "Default",
+      "sortStockAsc": "Stock ↑",
+      "sortStockDesc": "Stock ↓",
+      "sortPriceAsc": "Price ↑",
+      "sortPriceDesc": "Price ↓"
     },
     "editProduct": {
       "title": "Edit product",
