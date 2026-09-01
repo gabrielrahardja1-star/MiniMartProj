@@ -118,16 +118,16 @@ def admin_export_products_xlsx(
 
 
 def _generate_sku(db: Session) -> str:
-    """Auto-assigns the next MM-NNN SKU for products created without one
+    """Auto-assigns the next MMI-NNN SKU for products created without one
     (e.g. from the desktop till's inventory tab, which doesn't ask for a
     SKU)."""
-    existing = [row[0] for row in db.query(Product.sku).filter(Product.sku.like("MM-%")).all()]
+    existing = [row[0] for row in db.query(Product.sku).filter(Product.sku.like("MMI-%")).all()]
     max_n = 0
     for sku in existing:
-        suffix = sku[3:]
+        suffix = sku[4:]
         if suffix.isdigit():
             max_n = max(max_n, int(suffix))
-    return f"MM-{max_n + 1:03d}"
+    return f"MMI-{max_n + 1:03d}"
 
 
 @router.post("/products/", response_model=ProductAdminOut, status_code=status.HTTP_201_CREATED)

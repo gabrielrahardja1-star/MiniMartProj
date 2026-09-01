@@ -391,7 +391,7 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
           <Field label={t('admin.editProduct.sku')}>
             <input value={draft.sku || ''}
               onChange={e => setDraft({ ...draft, sku: e.target.value.toUpperCase() })}
-              style={{ ...inputSt, fontWeight: 700, letterSpacing: 0.5 }} placeholder="MM-001" />
+              style={{ ...inputSt, fontWeight: 700, letterSpacing: 0.5 }} placeholder="MMI-001" />
             <div style={{ color: T.ink3, fontSize: 11, marginTop: 4 }}>{t('admin.editProduct.skuHint')}</div>
           </Field>
 
@@ -614,7 +614,7 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
             <input value={draft.name_zh} onChange={e => setDraft({ ...draft, name_zh: e.target.value })} style={inputSt} placeholder="中文名称" />
           </Field>
           <Field label={t('admin.editProduct.skuOptional')}>
-            <input value={draft.sku} onChange={e => setDraft({ ...draft, sku: e.target.value.toUpperCase() })} style={inputSt} placeholder="MM-001" />
+            <input value={draft.sku} onChange={e => setDraft({ ...draft, sku: e.target.value.toUpperCase() })} style={inputSt} placeholder="MMI-001" />
           </Field>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Field label={t('admin.editProduct.unit')}>
