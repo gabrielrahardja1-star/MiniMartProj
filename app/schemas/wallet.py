@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 class WalletTopUpRequest(BaseModel):
     amount: float = Field(..., gt=0)
     note: str | None = None
+    occurred_at: datetime | None = None  # backdate the ledger entry (naive UTC)
 
     @field_validator("note")
     @classmethod
@@ -18,6 +19,7 @@ class WalletTopUpRequest(BaseModel):
 class WalletAdjustRequest(BaseModel):
     new_balance: float = Field(..., ge=0)
     note: str | None = None
+    occurred_at: datetime | None = None  # backdate the ledger entry (naive UTC)
 
     @field_validator("note")
     @classmethod

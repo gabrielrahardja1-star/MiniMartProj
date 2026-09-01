@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { T } from '../../utils/theme'
 import Ic from '../../components/Ic'
-import LanguageSwitcher from '../../components/LanguageSwitcher'
+import AdminLangToggle from '../../components/AdminLangToggle'
 import { useAuth } from '../../context/AuthContext'
 
 export default function AdminProfile() {
@@ -16,7 +16,6 @@ export default function AdminProfile() {
   const menuItems = [
     { ic: 'trend',   label: t('admin.profile.menu.reports'),  action: () => navigate('/admin/reports') },
     { ic: 'doc',     label: t('admin.profile.menu.invoices'),  action: () => navigate('/admin/invoices') },
-    { ic: 'profile', label: t('admin.profile.menu.manageWorkers'),  action: () => navigate('/admin/workers') },
     { ic: 'wallet',  label: t('admin.profile.menu.walletLedger'),  action: () => navigate('/admin/wallet-ledger') },
     { ic: 'pkg',     label: t('admin.profile.menu.suppliers'),  action: null },
   ]
@@ -51,8 +50,9 @@ export default function AdminProfile() {
       </div>
 
       {/* Language Switcher */}
-      <div style={{ padding: '0 20px 16px' }}>
-        <LanguageSwitcher />
+      <div style={{ padding: '0 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ color: T.ink3, fontSize: 13, fontWeight: 600 }}>{t('admin.profile.language')}</span>
+        <AdminLangToggle />
       </div>
 
       {/* Menu */}

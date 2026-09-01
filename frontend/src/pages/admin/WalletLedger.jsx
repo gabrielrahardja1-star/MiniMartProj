@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency, formatDateTime } from '../../utils/format'
 import Ic from '../../components/Ic'
@@ -7,16 +7,16 @@ import api from '../../api'
 import toast from 'react-hot-toast'
 
 const typeStyle = {
-  topup: { bg: T.goodSoft, fg: T.good, label: 'Top-up' },
-  payment: { bg: T.badSoft, fg: T.bad, label: 'Payment' },
-  refund: { bg: T.brandSoft, fg: T.brand, label: 'Refund' },
-  reversal: { bg: T.badSoft, fg: T.bad, label: 'Reversal' },
-  adjustment_credit: { bg: T.goodSoft, fg: T.good, label: 'Adjustment' },
-  adjustment_debit: { bg: T.badSoft, fg: T.bad, label: 'Adjustment' },
+  topup: { bg: T.goodSoft, fg: T.good, key: 'typeTopup' },
+  payment: { bg: T.badSoft, fg: T.bad, key: 'typePayment' },
+  refund: { bg: T.brandSoft, fg: T.brand, key: 'typeRefund' },
+  reversal: { bg: T.badSoft, fg: T.bad, key: 'typeReversal' },
+  adjustment_credit: { bg: T.goodSoft, fg: T.good, key: 'typeAdjustment' },
+  adjustment_debit: { bg: T.badSoft, fg: T.bad, key: 'typeAdjustment' },
 }
 
 export default function WalletLedger() {
-  const navigate = useNavigate()
+  const { t } = useTranslation()
   const [workers, setWorkers] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [transactions, setTransactions] = useState([])
@@ -32,30 +32,23 @@ export default function WalletLedger() {
         setWorkers(data)
         if (list[0]) setSelectedId(String(list[0].id))
       })
-      .catch(() => toast.error('Failed to load workers'))
+      .catch(() => toast.error(t('admin.walletLedger.loadWorkersFail')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (!selectedId) return
     api.get(`/admin/workers/${selectedId}/transactions`)
       .then(({ data }) => setTransactions(data))
-      .catch(() => toast.error('Failed to load ledger'))
+      .catch(() => toast.error(t('admin.walletLedger.loadFail')))
       .finally(() => setLoading(false))
-  }, [selectedId])
+  }, [selectedId, t])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8, fontFamily: FONT }}>
-      <div style={{ padding: '8px 20px 14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <div onClick={() => navigate('/admin/profile')} style={{ cursor: 'pointer', display: 'flex' }}>
-              <Ic name="back" size={20} color={T.ink3} />
-            </div>
-            <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{transactions.length} entries</div>
-          </div>
-          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Wallet ledger</div>
-        </div>
+      <div style={{ padding: '8px 20px 14px' }}>
+        <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{t('admin.walletLedger.entries', { count: transactions.length })}</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('admin.walletLedger.title')}</div>
       </div>
 
       <div style={{ padding: '0 20px 14px' }}>
@@ -82,7 +75,7 @@ export default function WalletLedger() {
           }}>
             <div>
               <div style={{ color: T.ink3, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Current balance
+                {t('admin.walletLedger.currentBalance')}
               </div>
               <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, marginTop: 3 }}>
                 {formatCurrency(selectedWorker.balance || 0)}
@@ -100,14 +93,15 @@ export default function WalletLedger() {
 
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
-          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>Loading…</div>
+          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>{t('admin.common.loading')}</div>
         ) : transactions.length === 0 ? (
           <div style={{
             background: T.surface, borderRadius: 18, padding: 30,
             border: `1px dashed ${T.line}`, textAlign: 'center', color: T.ink3, fontSize: 14,
-          }}>No wallet transactions yet.</div>
+          }}>{t('admin.walletLedger.none')}</div>
         ) : transactions.map(tx => {
-          const style = typeStyle[tx.type] || { bg: T.surfaceAlt, fg: T.ink2, label: tx.type }
+          const style = typeStyle[tx.type] || { bg: T.surfaceAlt, fg: T.ink2, key: null }
+          const label = style.key ? t(`admin.walletLedger.${style.key}`) : tx.type
           const sign = ['payment', 'reversal', 'adjustment_debit'].includes(tx.type) ? '-' : '+'
           return (
             <div key={tx.id} style={{
@@ -119,19 +113,19 @@ export default function WalletLedger() {
                   padding: '4px 9px', borderRadius: 999,
                   background: style.bg, color: style.fg,
                   fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3,
-                }}>{style.label}</div>
+                }}>{label}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>
                     {sign}{formatCurrency(tx.amount)}
                   </div>
                   <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
                     {formatDateTime(tx.created_at)}
-                    {tx.order_id ? ` · Order #${tx.order_id}` : ''}
+                    {tx.order_id ? ` · ${t('admin.walletLedger.order', { id: tx.order_id })}` : ''}
                   </div>
                   {tx.note && <div style={{ color: T.ink2, fontSize: 12, marginTop: 6 }}>{tx.note}</div>}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ color: T.ink3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>After</div>
+                  <div style={{ color: T.ink3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{t('admin.walletLedger.after')}</div>
                   <div style={{ color: T.ink2, fontSize: 13, fontWeight: 700 }}>{formatCurrency(tx.balance_after)}</div>
                 </div>
               </div>

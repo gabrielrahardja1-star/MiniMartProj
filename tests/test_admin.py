@@ -24,11 +24,17 @@ def _mark_order_ready(db_session, order_id):
 
 
 def test_admin_list_products_shows_low_stock(client, admin_token, products):
+    client.post(
+        "/api/admin/products/",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Bulk Water", "sku": "BW-001", "price": 1.0, "stock": 100},
+    )
     resp = client.get("/api/admin/products/", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 200
     by_sku = {p["sku"]: p for p in resp.json()}
-    assert by_sku["SH-001"]["low_stock"] is True   # stock=5, threshold=5
-    assert by_sku["WG-001"]["low_stock"] is False   # stock=10
+    assert by_sku["SH-001"]["low_stock"] is True    # stock=5, threshold=30
+    assert by_sku["WG-001"]["low_stock"] is True    # stock=10, threshold=30
+    assert by_sku["BW-001"]["low_stock"] is False   # stock=100
 
 
 def test_admin_create_product(client, admin_token):
@@ -40,7 +46,25 @@ def test_admin_create_product(client, admin_token):
     assert resp.status_code == 201
     data = resp.json()
     assert data["name"] == "Protein Bar"
-    assert data["low_stock"] is True  # stock=3 <= 5
+    assert data["low_stock"] is True  # stock=3 <= 30
+
+
+def test_admin_update_product_sku_and_conflict(client, admin_token, products):
+    p0, p1 = products[0].id, products[1].id
+    ok = client.put(
+        f"/api/admin/products/{p0}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"sku": "WG-999"},
+    )
+    assert ok.status_code == 200
+    assert ok.json()["sku"] == "WG-999"
+
+    clash = client.put(
+        f"/api/admin/products/{p1}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"sku": "WG-999"},
+    )
+    assert clash.status_code == 409
 
 
 def test_admin_create_product_duplicate_sku(client, admin_token, products):
@@ -186,7 +210,7 @@ def test_transactions_xlsx_export(client, admin_token, db_session, worker, produ
     assert resp.headers["content-disposition"].endswith('transactions_all.xlsx"')
 
     wb = load_workbook(io.BytesIO(resp.content))
-    assert wb.sheetnames == ["Sales", "Wallet movements"]
+    assert wb.sheetnames == ["Sales", "Wallet movements", "Daily summary"]
 
     sales = wb["Sales"]
     assert [c.value for c in sales[1]][:4] == ["Date", "Time", "Order #", "Type"]
@@ -254,3 +278,135 @@ def test_admin_routes_reject_worker(client, worker_token):
     resp = client.get("/api/admin/products/",
                       headers={"Authorization": f"Bearer {worker_token}"})
     assert resp.status_code == 403
+
+
+# ── Dashboard summary (item 7) ───────────────────────────────────────────────
+
+def test_dashboard_summary_splits_sales_and_deposits(client, admin_token, db_session, worker, products):
+    _seed_cashier_sale(db_session, worker, products[0], 2)  # 2 x 5.50 = 11 today
+    client.post(
+        f"/api/admin/workers/{worker.id}/topup",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"amount": 250},
+    )
+    resp = client.get("/api/admin/dashboard/summary",
+                      headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["sales_total"] == 11.0
+    assert data["deposits_total"] == 250.0
+    assert data["order_count"] == 1
+    assert data["items_sold"] == 2
+
+
+def test_dashboard_summary_scoped_to_a_single_day(client, admin_token, db_session, worker, products):
+    from datetime import datetime
+    _seed_cashier_sale(db_session, worker, products[0], 1,
+                       created_at=datetime(2026, 3, 15, 9, 0))
+    _seed_cashier_sale(db_session, worker, products[1], 1)  # today
+
+    old = client.get("/api/admin/dashboard/summary",
+                     params={"day": "2026-03-15"},
+                     headers={"Authorization": f"Bearer {admin_token}"}).json()
+    assert old["sales_total"] == 5.5
+    assert old["order_count"] == 1
+
+    other = client.get("/api/admin/dashboard/summary",
+                       params={"day": "2026-03-16"},
+                       headers={"Authorization": f"Bearer {admin_token}"}).json()
+    assert other["sales_total"] == 0
+    assert other["order_count"] == 0
+
+
+# ── Edit a completed cashier sale (item 4) ───────────────────────────────────
+
+def test_edit_cashier_sale_reconciles_stock_and_wallet(client, admin_token, db_session, worker, products):
+    gloves = products[0]  # stock 10, price 5.50
+    client.post(
+        f"/api/admin/workers/{worker.id}/topup",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"amount": 100},
+    )
+    db_session.refresh(worker)
+
+    # a settled 2-unit sale, balance debited by hand to mirror the real path
+    order = _seed_cashier_sale(db_session, worker, gloves, 2)
+    worker.balance = round(float(worker.balance) - 11.0, 2)
+    db_session.commit()
+    db_session.refresh(gloves)
+    stock_after_sale = gloves.stock  # 8
+
+    resp = client.put(
+        f"/api/admin/orders/{order.id}/edit",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"items": [{"product_id": gloves.id, "quantity": 1}]},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 5.5
+
+    db_session.refresh(gloves)
+    db_session.refresh(worker)
+    assert gloves.stock == stock_after_sale + 1          # one unit returned
+    assert float(worker.balance) == round(100 - 5.5, 2)   # refunded the 5.50 difference
+    credit = (
+        db_session.query(WalletTransaction)
+        .filter(WalletTransaction.type == "adjustment_credit",
+                WalletTransaction.order_id == order.id)
+        .one()
+    )
+    assert float(credit.amount) == 5.5
+
+
+def test_edit_rejects_non_wallet_order(client, admin_token, db_session, worker, products):
+    order = Order(worker_id=worker.id, status="pending", payment_status="paid",
+                  payment_method="qris", total=5.5)
+    db_session.add(order)
+    db_session.commit()
+    resp = client.put(
+        f"/api/admin/orders/{order.id}/edit",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"items": [{"product_id": products[0].id, "quantity": 1}]},
+    )
+    assert resp.status_code == 400
+
+
+# ── Monthly reconciliation export (item 5) ───────────────────────────────────
+
+def test_monthly_reconciliation_xlsx(client, admin_token, db_session, worker, products):
+    from datetime import datetime
+    _seed_cashier_sale(db_session, worker, products[0], 2,
+                       created_at=datetime(2026, 3, 10, 12, 0))
+    resp = client.get(
+        "/api/admin/reports/monthly.xlsx",
+        params={"month": "2026-03"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-disposition"].endswith('reconciliation_2026-03.xlsx"')
+    wb = load_workbook(io.BytesIO(resp.content))
+    assert wb.sheetnames == ["Daily", "By worker"]
+    daily = wb["Daily"]
+    assert [c.value for c in daily[1]] == ["Date", "Deposits (Rp)", "Sales (Rp)", "Orders", "Net (Rp)"]
+    rows = {r[0]: r for r in daily.iter_rows(min_row=2, values_only=True) if r[0] and str(r[0]).startswith("2026")}
+    assert rows["2026-03-10"][2] == 11.0   # sales that day
+    assert len(rows) == 31                  # every day of March present
+
+
+def test_backdated_topup_lands_on_chosen_day(client, admin_token, db_session, worker):
+    resp = client.post(
+        f"/api/admin/workers/{worker.id}/topup",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"amount": 500, "occurred_at": "2026-02-01T08:00:00"},
+    )
+    assert resp.status_code == 200
+    tx = db_session.query(WalletTransaction).filter(WalletTransaction.type == "topup").one()
+    assert tx.created_at.strftime("%Y-%m-%d") == "2026-02-01"
+
+
+def test_backdated_topup_rejects_future(client, admin_token, worker):
+    resp = client.post(
+        f"/api/admin/workers/{worker.id}/topup",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"amount": 500, "occurred_at": "2099-01-01T00:00:00"},
+    )
+    assert resp.status_code == 400

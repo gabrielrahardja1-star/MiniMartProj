@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { T } from '../../utils/theme'
 import Ic from '../../components/Ic'
 import { ProductThumb } from './Layout'
 import { formatCurrency } from '../../utils/format'
+import { isLowStock } from '../../utils/product'
 import api from '../../api'
 import toast from 'react-hot-toast'
 
 export default function AdminInventory() {
   const { openEdit, openAddProduct, refreshKey, categories = [] } = useOutletContext()
+  const { t } = useTranslation()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
@@ -41,7 +44,7 @@ export default function AdminInventory() {
       a.click()
       setTimeout(() => { a.remove(); URL.revokeObjectURL(href) }, 2000)
     } catch {
-      toast.error('Export failed')
+      toast.error(t('admin.inventory.exportFail'))
     } finally {
       setExporting(false)
     }
@@ -53,11 +56,11 @@ export default function AdminInventory() {
       const res = await api.put(`/admin/products/${product.id}`, { stock: newStock })
       setProducts(prev => prev.map(p => p.id === product.id ? res.data : p))
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to update stock')
+      toast.error(err.response?.data?.detail || t('admin.editProduct.saveFail'))
     }
   }
 
-  const lowCount      = products.filter(p => p.is_active && p.stock > 0 && p.stock <= 5).length
+  const lowCount      = products.filter(p => p.is_active && isLowStock(p.stock)).length
   const outCount      = products.filter(p => p.is_active && p.stock === 0).length
   const inactiveCount = products.filter(p => !p.is_active).length
 
@@ -73,11 +76,11 @@ export default function AdminInventory() {
     .map(([k, count]) => ({
       id: k,
       count,
-      label: k === '__none__' ? 'Uncategorized' : (zhFor(k) ? `${k} · ${zhFor(k)}` : k),
+      label: k === '__none__' ? t('admin.inventory.uncategorized') : (zhFor(k) ? `${k} · ${zhFor(k)}` : k),
     }))
 
   let list = products
-  if (filter === 'low')      list = products.filter(p => p.is_active && p.stock > 0 && p.stock <= 5)
+  if (filter === 'low')      list = products.filter(p => p.is_active && isLowStock(p.stock))
   if (filter === 'out')      list = products.filter(p => p.is_active && p.stock === 0)
   if (filter === 'inactive') list = products.filter(p => !p.is_active)
   if (catFilter !== 'all') {
@@ -93,10 +96,10 @@ export default function AdminInventory() {
   }
 
   const chips = [
-    { id: 'all',      label: 'All',          count: products.length },
-    { id: 'low',      label: 'Low stock',    count: lowCount,       color: T.warn },
-    { id: 'out',      label: 'Out of stock', count: outCount,       color: T.bad },
-    { id: 'inactive', label: 'Inactive',     count: inactiveCount,  color: T.ink3 },
+    { id: 'all',      label: t('admin.inventory.filterAll'),      count: products.length },
+    { id: 'low',      label: t('admin.inventory.filterLow'),      count: lowCount,       color: T.warn },
+    { id: 'out',      label: t('admin.inventory.filterOut'),      count: outCount,       color: T.bad },
+    { id: 'inactive', label: t('admin.inventory.filterInactive'), count: inactiveCount,  color: T.ink3 },
   ]
 
   return (
@@ -104,8 +107,8 @@ export default function AdminInventory() {
       {/* Header */}
       <div style={{ padding: '8px 20px 14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
         <div>
-          <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{products.length} products</div>
-          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>Inventory</div>
+          <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{t('admin.inventory.count', { count: products.length })}</div>
+          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>{t('admin.inventory.title')}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <div onClick={exporting ? undefined : downloadXlsx} style={{
@@ -115,14 +118,14 @@ export default function AdminInventory() {
             fontSize: 13, fontWeight: 700,
             cursor: exporting ? 'default' : 'pointer', opacity: exporting ? 0.5 : 1,
           }}>
-            <Ic name="download" size={15} color={T.ink2} /> {exporting ? 'Exporting…' : 'Excel'}
+            <Ic name="download" size={15} color={T.ink2} /> {exporting ? t('admin.common.exporting') : t('admin.common.excel')}
           </div>
           <div onClick={openAddProduct} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '10px 14px', borderRadius: 12, background: T.brand, color: '#fff',
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
           }}>
-            <Ic name="plus" size={15} color="#fff" /> Add item
+            <Ic name="plus" size={15} color="#fff" /> {t('admin.common.addItem')}
           </div>
         </div>
       </div>
@@ -137,7 +140,7 @@ export default function AdminInventory() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Search products"
+            placeholder={t('admin.inventory.searchProducts')}
             style={{
               flex: 1, border: 'none', outline: 'none', background: 'transparent',
               fontSize: 15, color: T.ink,
@@ -183,7 +186,7 @@ export default function AdminInventory() {
       {catChips.length > 1 && (
         <div style={{ padding: '0 0 14px' }}>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 20px', scrollbarWidth: 'none' }}>
-            {[{ id: 'all', label: 'All categories', count: products.length }, ...catChips].map(c => {
+            {[{ id: 'all', label: t('admin.inventory.allCategories'), count: products.length }, ...catChips].map(c => {
               const active = catFilter === c.id
               return (
                 <div key={c.id} onClick={() => setCatFilter(c.id)} style={{
@@ -210,19 +213,19 @@ export default function AdminInventory() {
       {/* Product list */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
-          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>Loading…</div>
+          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>{t('admin.common.loading')}</div>
         ) : list.length === 0 ? (
           <div style={{
             background: T.surface, borderRadius: 18, padding: 30,
             border: `1px dashed ${T.line}`, textAlign: 'center', color: T.ink3, fontSize: 14,
-          }}>No products match.</div>
+          }}>{t('admin.inventory.noMatch')}</div>
         ) : list.map(p => {
           const out      = p.stock === 0
-          const low      = p.stock > 0 && p.stock <= 5
+          const low      = isLowStock(p.stock)
           const inactive = !p.is_active
           const chip =
-            inactive ? { label: 'Hidden',     bg: T.surfaceAlt, fg: T.ink3 } :
-            out      ? { label: 'Out',        bg: T.badSoft,    fg: T.bad } :
+            inactive ? { label: t('admin.inventory.hidden'), bg: T.surfaceAlt, fg: T.ink3 } :
+            out      ? { label: t('admin.inventory.out'),    bg: T.badSoft,    fg: T.bad } :
             low      ? { label: `${p.stock}`, bg: T.warnSoft,   fg: T.warn } :
                        { label: `${p.stock}`, bg: T.goodSoft,   fg: T.good }
 
@@ -238,8 +241,12 @@ export default function AdminInventory() {
                   <div style={{ color: T.ink, fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>
                     {p.name}{p.name_zh ? <span style={{ color: T.ink3, fontWeight: 500 }}> · {p.name_zh}</span> : null}
                   </div>
-                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
-                    {p.unit} · {formatCurrency(p.price)}{p.category ? ` · ${p.category}` : ''}
+                  <div style={{ color: T.ink3, fontSize: 12, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontWeight: 800, color: T.ink2, background: T.surfaceAlt,
+                      padding: '1px 6px', borderRadius: 6, letterSpacing: 0.3,
+                    }}>{p.sku}</span>
+                    <span>{p.unit} · {formatCurrency(p.price)}{p.category ? ` · ${p.category}` : ''}</span>
                   </div>
                 </div>
                 <div style={{
@@ -253,7 +260,7 @@ export default function AdminInventory() {
                 marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.line}`,
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>Stock</div>
+                <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>{t('admin.inventory.stock')}</div>
                 <div style={{
                   display: 'flex', alignItems: 'center',
                   background: T.surfaceAlt, borderRadius: 10, padding: 2,
@@ -276,7 +283,7 @@ export default function AdminInventory() {
                   fontSize: 12, fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}>
-                  <Ic name="edit" size={13} color={T.brand} /> Edit
+                  <Ic name="edit" size={13} color={T.brand} /> {t('admin.inventory.edit')}
                 </div>
               </div>
             </div>

@@ -159,6 +159,7 @@ def sync_cashier_sales(
                 worker_employee_id=req.worker_employee_id,
                 items=req.items,
                 client_record_id=req.client_record_id,
+                occurred_at=req.occurred_at,
             )
             results.append(CashierSaleResult(
                 client_record_id=req.client_record_id,

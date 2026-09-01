@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import Ic from '../../components/Ic'
 import { ProductThumb } from './Layout'
 import { formatCurrency } from '../../utils/format'
 import api from '../../api'
 import toast from 'react-hot-toast'
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 // crypto.randomUUID() only exists in a secure context (HTTPS / localhost). The
 // admin panel is served over plain HTTP, where it's undefined and throws — so
@@ -28,15 +33,18 @@ function makeClientRecordId() {
 
 // ── CheckoutSheet ─────────────────────────────────────────────────────────────
 function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
+  const { t } = useTranslation()
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState(null)
   const [charging, setCharging] = useState(false)
+  const [saleDate, setSaleDate] = useState(todayStr())
 
   useEffect(() => {
     if (open) {
       setQ('')
       setSelected(null)
       setCharging(false)
+      setSaleDate(todayStr())
     }
   }, [open])
 
@@ -55,22 +63,23 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
     if (!selected || insufficient) return
     setCharging(true)
     try {
-      const res = await api.post('/mobile/v1/cashier/sales/sync', {
-        sales: [{
-          client_record_id: makeClientRecordId(),
-          worker_employee_id: selected.employee_id,
-          items: items.map(i => ({ product_id: i.id, quantity: i.quantity })),
-        }],
-      })
+      const sale = {
+        client_record_id: makeClientRecordId(),
+        worker_employee_id: selected.employee_id,
+        items: items.map(i => ({ product_id: i.id, quantity: i.quantity })),
+      }
+      // only send occurred_at when the cashier actually backdated the sale
+      if (saleDate && saleDate !== todayStr()) sale.occurred_at = `${saleDate}T12:00:00`
+      const res = await api.post('/mobile/v1/cashier/sales/sync', { sales: [sale] })
       const result = res.data.results[0]
       if (result.status === 'synced') {
-        toast.success(`Charged ${formatCurrency(total)} to ${selected.name}`)
+        toast.success(t('admin.cashier.charged', { amount: formatCurrency(total), name: selected.name }))
         onCompleted(result.worker_balance_after)
       } else {
-        toast.error(result.error || 'Sale failed')
+        toast.error(result.error || t('admin.cashier.failed'))
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Sale failed')
+      toast.error(err.response?.data?.detail || t('admin.cashier.failed'))
     } finally {
       setCharging(false)
     }
@@ -92,7 +101,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
         </div>
 
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Charge to worker</div>
+          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{t('admin.cashier.checkoutTitle')}</div>
           <div onClick={onClose} style={{
             width: 36, height: 36, borderRadius: 12, background: T.surface,
             border: `1px solid ${T.line}`, display: 'grid', placeItems: 'center', cursor: 'pointer',
@@ -106,8 +115,25 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
             background: T.surface, borderRadius: 16, padding: 14, border: `1px solid ${T.line}`,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>{items.reduce((s, i) => s + i.quantity, 0)} items</div>
+            <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>{t('admin.cashier.itemsCount', { count: items.reduce((s, i) => s + i.quantity, 0) })}</div>
             <div style={{ color: T.ink, fontSize: 20, fontWeight: 700 }}>{formatCurrency(total)}</div>
+          </div>
+
+          <div>
+            <div style={{ color: T.ink3, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>
+              {t('admin.cashier.saleDate')}
+            </div>
+            <input
+              type="date"
+              value={saleDate}
+              max={todayStr()}
+              onChange={e => setSaleDate(e.target.value)}
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 12,
+                border: `1px solid ${saleDate !== todayStr() ? T.brand : T.line}`, background: T.surface,
+                fontSize: 15, color: T.ink, fontFamily: FONT, outline: 'none',
+              }}
+            />
           </div>
 
           {!selected ? (
@@ -121,13 +147,13 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
                   autoFocus
                   value={q}
                   onChange={e => setQ(e.target.value)}
-                  placeholder="Search by name or employee ID"
+                  placeholder={t('admin.cashier.searchWorker')}
                   style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: T.ink, fontFamily: FONT }}
                 />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {matches.length === 0 ? (
-                  <div style={{ color: T.ink3, textAlign: 'center', padding: 20, fontSize: 14 }}>No matching worker.</div>
+                  <div style={{ color: T.ink3, textAlign: 'center', padding: 20, fontSize: 14 }}>{t('admin.cashier.noWorker')}</div>
                 ) : matches.map(w => (
                   <div key={w.id} onClick={() => setSelected(w)} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
@@ -168,7 +194,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
                 <div onClick={() => setSelected(null)} style={{
                   padding: '6px 10px', borderRadius: 10, background: T.surfaceAlt,
                   color: T.ink2, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}>Change</div>
+                }}>{t('admin.cashier.change')}</div>
               </div>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -176,10 +202,10 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
                 background: insufficient ? T.badSoft : T.goodSoft,
               }}>
                 <div style={{ color: insufficient ? T.bad : T.good, fontSize: 13, fontWeight: 700 }}>
-                  Balance {formatCurrency(selected.balance)}
+                  {t('admin.cashier.balance', { amount: formatCurrency(selected.balance) })}
                 </div>
                 {insufficient && (
-                  <div style={{ color: T.bad, fontSize: 12, fontWeight: 700 }}>Insufficient balance</div>
+                  <div style={{ color: T.bad, fontSize: 12, fontWeight: 700 }}>{t('admin.cashier.insufficient')}</div>
                 )}
               </div>
             </div>
@@ -195,7 +221,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
             flex: 1, padding: 16, borderRadius: 16,
             background: T.surfaceAlt, color: T.ink2,
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
-          }}>Cancel</div>
+          }}>{t('admin.common.cancel')}</div>
           <div
             onClick={charge}
             style={{
@@ -205,7 +231,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
               fontSize: 15, fontWeight: 700, textAlign: 'center',
               cursor: (!selected || insufficient || charging) ? 'default' : 'pointer',
             }}
-          >{charging ? 'Charging…' : `Confirm sale · ${formatCurrency(total)}`}</div>
+          >{charging ? t('admin.cashier.charging') : t('admin.cashier.confirm', { amount: formatCurrency(total) })}</div>
         </div>
       </div>
     </>
@@ -214,6 +240,7 @@ function CheckoutSheet({ open, items, total, workers, onClose, onCompleted }) {
 
 // ── Cashier ───────────────────────────────────────────────────────────────────
 export default function Cashier() {
+  const { t } = useTranslation()
   const [products, setProducts] = useState([])
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -230,7 +257,7 @@ export default function Cashier() {
       setProducts(res.data.products)
       setWorkers(res.data.workers)
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to load catalog')
+      toast.error(err.response?.data?.detail || t('admin.cashier.loadFail'))
     } finally {
       setLoading(false)
     }
@@ -255,7 +282,10 @@ export default function Cashier() {
   const total = cartItems.reduce((s, i) => s + i.price * i.quantity, 0)
 
   const filtered = products.filter(p =>
-    q === '' || p.name.toLowerCase().includes(q.toLowerCase()) || p.name_zh?.includes(q)
+    q === '' ||
+    p.name.toLowerCase().includes(q.toLowerCase()) ||
+    p.name_zh?.includes(q) ||
+    p.sku?.toLowerCase().includes(q.toLowerCase())
   )
 
   function handleCompleted() {
@@ -267,8 +297,8 @@ export default function Cashier() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 8, paddingBottom: cartItems.length ? 110 : 16 }}>
       <div style={{ padding: '8px 20px 14px' }}>
-        <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{products.length} products in stock</div>
-        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>Cashier</div>
+        <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{t('admin.cashier.inStock', { count: products.length })}</div>
+        <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5, marginTop: 2 }}>{t('admin.cashier.title')}</div>
       </div>
 
       <div style={{ padding: '0 20px 14px' }}>
@@ -280,7 +310,7 @@ export default function Cashier() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Search products"
+            placeholder={t('admin.cashier.searchProducts')}
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 15, color: T.ink, fontFamily: FONT }}
           />
           {q && (
@@ -292,9 +322,9 @@ export default function Cashier() {
       </div>
 
       {loading ? (
-        <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>Loading…</div>
+        <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>{t('admin.common.loading')}</div>
       ) : filtered.length === 0 ? (
-        <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>No products match.</div>
+        <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>{t('admin.cashier.noMatch')}</div>
       ) : (
         <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {filtered.map(p => {
@@ -304,12 +334,20 @@ export default function Cashier() {
                 background: T.surface, borderRadius: 18, overflow: 'hidden',
                 border: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column',
               }}>
-                <div style={{ padding: '12px 12px 6px' }}>
+                <div style={{ padding: '12px 12px 6px', position: 'relative' }}>
                   <ProductThumb name={p.name} imageUrl={p.image_url} updatedAt={p.updated_at} size={120} radius={12} />
+                  {p.sku && (
+                    <div style={{
+                      position: 'absolute', top: 16, left: 16,
+                      background: 'rgba(12,35,64,0.82)', color: '#fff',
+                      fontSize: 12, fontWeight: 800, letterSpacing: 0.4,
+                      padding: '3px 8px', borderRadius: 8,
+                    }}>{p.sku}</div>
+                  )}
                 </div>
                 <div style={{ padding: '4px 12px 12px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <div style={{ color: T.ink, fontSize: 13, fontWeight: 600, lineHeight: 1.25 }}>{p.name}</div>
-                  <div style={{ color: T.ink3, fontSize: 11, marginTop: 2 }}>{p.unit} · {p.stock} in stock</div>
+                  <div style={{ color: T.ink3, fontSize: 11, marginTop: 2 }}>{p.unit} · {t('admin.cashier.inStockShort', { count: p.stock })}</div>
                   <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ color: T.ink, fontSize: 15, fontWeight: 700 }}>{formatCurrency(p.price)}</div>
                     {qty > 0 ? (
@@ -326,7 +364,7 @@ export default function Cashier() {
                       <div onClick={() => setQty(p.id, 1)} style={{
                         padding: '6px 12px', borderRadius: 12, background: T.brandSoft, color: T.brand,
                         fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                      }}>Add</div>
+                      }}>{t('admin.common.add')}</div>
                     )}
                   </div>
                 </div>
@@ -349,8 +387,8 @@ export default function Cashier() {
               boxShadow: '0 8px 24px rgba(59,130,246,0.35)', cursor: 'pointer',
             }}
           >
-            <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{itemCount} item{itemCount === 1 ? '' : 's'}</div>
-            <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Charge {formatCurrency(total)}</div>
+            <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{t('admin.cashier.itemsCount', { count: itemCount })}</div>
+            <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{t('admin.cashier.charge', { amount: formatCurrency(total) })}</div>
           </div>
         </div>
       )}

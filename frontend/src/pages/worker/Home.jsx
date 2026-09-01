@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext'
 import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency, formatMonth } from '../../utils/format'
-import { getProductName } from '../../utils/product'
+import { getProductName, isLowStock } from '../../utils/product'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
@@ -258,7 +258,7 @@ export default function Home() {
           <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {products.slice(0, 4).map(p => {
               const inCart = cartItems.find(c => c.product_id === p.id)
-              const lowStock = p.stock > 0 && p.stock <= 5
+              const lowStock = isLowStock(p.stock)
               return (
                 <div key={p.id} style={{
                   background: T.surface, borderRadius: 18, padding: 12,

@@ -47,6 +47,7 @@ class ProductCreateRequest(BaseModel):
 class ProductUpdateRequest(BaseModel):
     name: str | None = None
     name_zh: str | None = None
+    sku: str | None = None
     price: float | None = None
     stock: int | None = None
     unit: str | None = None
@@ -55,6 +56,14 @@ class ProductUpdateRequest(BaseModel):
     is_active: bool | None = None
 
     _clean = field_validator("name_zh", "category", "sub_category")(_blank_to_none)
+
+    @field_validator("sku")
+    @classmethod
+    def _clean_sku(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 
 class OrderItemAdminOut(BaseModel):
@@ -73,11 +82,27 @@ class OrderAdminOut(BaseModel):
     worker_name: str
     status: str
     payment_status: str
+    payment_method: str | None = None
     total: float
     created_at: datetime
     items: list[OrderItemAdminOut] = []
 
     model_config = {"from_attributes": True}
+
+
+class OrderEditItemRequest(BaseModel):
+    product_id: int
+    quantity: int
+
+
+class OrderEditRequest(BaseModel):
+    """In-place correction of a completed cashier (wallet) sale. `items` is the
+    full new line-item set. `worker_id` reassigns the sale to a different
+    worker. `occurred_at` backdates it. Wallet balances and stock are
+    reconciled by the difference and logged to the ledger."""
+    items: list[OrderEditItemRequest]
+    worker_id: int | None = None
+    occurred_at: datetime | None = None
 
 
 class WorkerOut(BaseModel):

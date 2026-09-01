@@ -7,12 +7,25 @@ from app.models.wallet import WalletTransaction
 from app.models.worker import Worker
 
 
+def normalize_occurred_at(dt: datetime | None) -> datetime | None:
+    """Coerce a client-supplied timestamp to the app's naive-UTC convention
+    and reject future dates. Used for backdating sales / ledger entries."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    if dt > datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Date cannot be in the future")
+    return dt
+
+
 def create_cashier_sale(
     db: Session,
     cashier_id: int,
     worker_employee_id: str,
     items: list,
     client_record_id: str,
+    occurred_at: datetime | None = None,
 ) -> Order:
     """Walk-up sale rung up by a cashier on a tablet: creates an order for
     the purchasing worker and immediately settles it from that worker's
@@ -33,6 +46,8 @@ def create_cashier_sale(
     if not items:
         raise HTTPException(status_code=400, detail="Sale must contain at least one item")
 
+    occurred_at = normalize_occurred_at(occurred_at)
+
     worker = (
         db.query(Worker)
         .filter(Worker.employee_id == worker_employee_id, Worker.is_active == True)
@@ -51,6 +66,8 @@ def create_cashier_sale(
         pickup_date=None,
         pickup_slot=None,
     )
+    if occurred_at is not None:
+        order.created_at = occurred_at
     db.add(order)
     db.flush()
 
@@ -96,7 +113,7 @@ def create_cashier_sale(
     order.payment_method = "wallet"
     order.updated_at = datetime.now(timezone.utc)
 
-    db.add(WalletTransaction(
+    tx = WalletTransaction(
         worker_id=worker.id,
         type="payment",
         amount=order_total,
@@ -104,7 +121,10 @@ def create_cashier_sale(
         order_id=order.id,
         performed_by_worker_id=cashier_id,
         note="Cashier sale",
-    ))
+    )
+    if occurred_at is not None:
+        tx.created_at = occurred_at
+    db.add(tx)
 
     db.commit()
     db.refresh(order)

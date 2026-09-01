@@ -19,6 +19,7 @@ from app.schemas.admin import (
     ProductCreateRequest,
     ProductUpdateRequest,
     OrderAdminOut,
+    OrderEditRequest,
     OrderItemAdminOut,
     OrderRefundResult,
     WorkerOut,
@@ -32,9 +33,12 @@ from app.schemas.wallet import WalletTopUpRequest, WalletAdjustRequest, WalletTr
 from app.core.security import hash_pin
 from app.core.deps import require_admin
 from app.core.product_categories import category_zh_for
+from app.services.cashier_service import normalize_occurred_at
 from app.services.storage import save_product_image, ALLOWED_IMAGE_EXTENSIONS
 
-LOW_STOCK_THRESHOLD = 5
+# A product at or below this many units on hand is flagged "low stock" across
+# the app (admin dashboard alert, inventory chips, worker shop badge).
+LOW_STOCK_THRESHOLD = 30
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -157,6 +161,13 @@ def admin_update_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     fields = body.model_dump(exclude_unset=True)
+    new_sku = fields.get("sku")
+    if new_sku and new_sku != product.sku:
+        if db.query(Product).filter(Product.sku == new_sku, Product.id != product_id).first():
+            raise HTTPException(status_code=409, detail=f"SKU '{new_sku}' already exists")
+    elif "sku" in fields and not new_sku:
+        # never allow clearing a SKU (it's required and used as a stable key)
+        fields.pop("sku")
     for field, value in fields.items():
         setattr(product, field, value)
     # keep the Chinese category label in sync with the category
@@ -211,6 +222,7 @@ def _build_order_out(order: Order) -> OrderAdminOut:
         status=order.status,
         total=float(order.total),
         payment_status=order.payment_status,
+        payment_method=order.payment_method,
         created_at=order.created_at,
         items=[
             OrderItemAdminOut(
@@ -415,6 +427,140 @@ def refund_order(
     )
 
 
+@router.put("/orders/{order_id}/edit", response_model=OrderAdminOut)
+def edit_cashier_sale(
+    order_id: int,
+    body: OrderEditRequest,
+    db: Session = Depends(get_db),
+    admin: Worker = Depends(require_admin),
+):
+    """In-place correction of a completed cashier (wallet) sale: replace its
+    line items, reassign it to another worker, and/or backdate it. Product
+    stock and worker wallet balances are reconciled by the difference and the
+    change is written to the wallet ledger so everything still adds up.
+
+    Only wallet-paid, non-cancelled orders (i.e. till sales) are editable
+    this way; QRIS web pre-orders use cancel/refund instead."""
+    if not body.items:
+        raise HTTPException(status_code=400, detail="A sale must have at least one item")
+
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items).joinedload(OrderItem.product), joinedload(Order.worker))
+        .filter(Order.id == order_id)
+        .with_for_update()
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.payment_method != "wallet" or order.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Only completed cashier (wallet) sales can be edited")
+
+    occurred_at = normalize_occurred_at(body.occurred_at)
+
+    old_total = float(order.total)
+    old_worker = (
+        db.query(Worker).filter(Worker.id == order.worker_id).with_for_update().first()
+    )
+    new_worker = old_worker
+    if body.worker_id is not None and body.worker_id != order.worker_id:
+        new_worker = (
+            db.query(Worker).filter(Worker.id == body.worker_id).with_for_update().first()
+        )
+        if not new_worker or new_worker.role != "worker":
+            raise HTTPException(status_code=404, detail="Target worker not found")
+        if not new_worker.is_active:
+            raise HTTPException(status_code=400, detail="Target worker is inactive")
+
+    # keep the original per-unit prices for products already on the order so a
+    # quantity fix doesn't silently reprice history
+    old_unit_price = {it.product_id: float(it.unit_price) for it in order.items}
+
+    # 1. restore stock from the old lines, then drop them
+    for it in list(order.items):
+        product = db.query(Product).filter(Product.id == it.product_id).with_for_update().first()
+        if product:
+            product.stock += it.quantity
+        db.delete(it)
+    db.flush()
+
+    # 2. apply the new lines
+    new_total = 0.0
+    for req in body.items:
+        if req.quantity <= 0:
+            raise HTTPException(status_code=400, detail="Quantity must be positive")
+        product = (
+            db.query(Product).filter(Product.id == req.product_id).with_for_update().first()
+        )
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product {req.product_id} not found")
+        if product.stock < req.quantity:
+            raise HTTPException(
+                status_code=409,
+                detail=f"'{product.name}' only has {product.stock} in stock, needs {req.quantity}",
+            )
+        unit_price = old_unit_price.get(product.id, float(product.price))
+        subtotal = round(unit_price * req.quantity, 2)
+        new_total += subtotal
+        product.stock -= req.quantity
+        db.add(OrderItem(
+            order_id=order.id, product_id=product.id, quantity=req.quantity,
+            unit_price=unit_price, subtotal=subtotal,
+        ))
+    new_total = round(new_total, 2)
+
+    # 3. reconcile wallet balance(s) + ledger
+    if new_worker.id == old_worker.id:
+        delta = round(new_total - old_total, 2)
+        if delta > 0:
+            if float(old_worker.balance) < delta:
+                raise HTTPException(status_code=409, detail=f"Insufficient balance for {old_worker.name}")
+            old_worker.balance = round(float(old_worker.balance) - delta, 2)
+            db.add(WalletTransaction(
+                worker_id=old_worker.id, type="adjustment_debit", amount=delta,
+                balance_after=old_worker.balance, order_id=order.id,
+                performed_by_worker_id=admin.id, note=f"Sale #{order.id} edited",
+            ))
+        elif delta < 0:
+            old_worker.balance = round(float(old_worker.balance) + abs(delta), 2)
+            db.add(WalletTransaction(
+                worker_id=old_worker.id, type="adjustment_credit", amount=abs(delta),
+                balance_after=old_worker.balance, order_id=order.id,
+                performed_by_worker_id=admin.id, note=f"Sale #{order.id} edited",
+            ))
+    else:
+        old_worker.balance = round(float(old_worker.balance) + old_total, 2)
+        db.add(WalletTransaction(
+            worker_id=old_worker.id, type="refund", amount=old_total,
+            balance_after=old_worker.balance, order_id=order.id,
+            performed_by_worker_id=admin.id, note=f"Sale #{order.id} reassigned away",
+        ))
+        if float(new_worker.balance) < new_total:
+            raise HTTPException(status_code=409, detail=f"Insufficient balance for {new_worker.name}")
+        new_worker.balance = round(float(new_worker.balance) - new_total, 2)
+        db.add(WalletTransaction(
+            worker_id=new_worker.id, type="payment", amount=new_total,
+            balance_after=new_worker.balance, order_id=order.id,
+            performed_by_worker_id=admin.id, note=f"Sale #{order.id} reassigned here",
+        ))
+
+    order.worker_id = new_worker.id
+    order.total = new_total
+    if occurred_at is not None:
+        order.created_at = occurred_at
+    order.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    fresh = (
+        db.query(Order)
+        .options(joinedload(Order.worker), joinedload(Order.items).joinedload(OrderItem.product))
+        .filter(Order.id == order.id)
+        .first()
+    )
+    return _build_order_out(fresh)
+
+
 # ── Workers ───────────────────────────────────────────────────────────────────
 
 @router.get("/workers/", response_model=list[WorkerOut])
@@ -498,6 +644,9 @@ def admin_top_up_worker(
         performed_by_worker_id=admin.id,
         note=body.note,
     )
+    occurred_at = normalize_occurred_at(body.occurred_at)
+    if occurred_at is not None:
+        tx.created_at = occurred_at
     db.add(tx)
     db.commit()
     db.refresh(worker)
@@ -540,6 +689,9 @@ def admin_adjust_worker_balance(
         performed_by_worker_id=admin.id,
         note=body.note,
     )
+    occurred_at = normalize_occurred_at(body.occurred_at)
+    if occurred_at is not None:
+        tx.created_at = occurred_at
     db.add(tx)
     db.commit()
     db.refresh(worker)
@@ -619,6 +771,56 @@ def reverse_wallet_transaction(
         worker_balance=float(worker.balance),
         reversed_amount=float(tx.amount),
     )
+
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
+def _day_bounds(day: date) -> tuple[datetime, datetime]:
+    """[start, end) for a calendar day, matched against naive-UTC created_at
+    (the same instant range the rest of the app uses for 'that day')."""
+    start = datetime.combine(day, time.min)
+    return start, start + timedelta(days=1)
+
+
+@router.get("/dashboard/summary")
+def dashboard_summary(
+    day: date | None = Query(None, description="calendar day, defaults to today (UTC)"),
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """Single-day totals for the admin dashboard: money spent in the shop
+    (belanja) vs money paid into wallets (deposit), kept separate and scoped
+    to one day rather than an all-time running total."""
+    target = day or datetime.utcnow().date()
+    start, end = _day_bounds(target)
+
+    orders = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.created_at >= start, Order.created_at < end, Order.status != "cancelled")
+        .all()
+    )
+    sales_total = round(sum(float(o.total) for o in orders), 2)
+    items_sold = sum(it.quantity for o in orders for it in o.items)
+
+    topups = (
+        db.query(WalletTransaction)
+        .filter(
+            WalletTransaction.created_at >= start,
+            WalletTransaction.created_at < end,
+            WalletTransaction.type == "topup",
+        )
+        .all()
+    )
+    deposits_total = round(sum(float(t.amount) for t in topups), 2)
+
+    return {
+        "day": target.isoformat(),
+        "sales_total": sales_total,
+        "deposits_total": deposits_total,
+        "order_count": len(orders),
+        "items_sold": items_sold,
+    }
 
 
 # ── Reports ───────────────────────────────────────────────────────────────────
@@ -725,6 +927,59 @@ _WTX_TYPE_LABELS = {
 _WTX_NEGATIVE = {"payment", "reversal", "adjustment_debit"}
 
 _MONEY_FMT = "#,##0"
+
+
+def _daily_reconciliation(orders, wtxs) -> dict[str, dict]:
+    """Per-day rollup: deposits (wallet top-ups) vs shop sales (active order
+    totals), keyed by 'YYYY-MM-DD'."""
+    from collections import defaultdict
+
+    days: dict[str, dict] = defaultdict(lambda: {"deposits": 0.0, "sales": 0.0, "orders": 0})
+    seen_orders: set[int] = set()
+    for o in orders:
+        if o.status == "cancelled" or o.id in seen_orders:
+            continue
+        seen_orders.add(o.id)
+        d = o.created_at.strftime("%Y-%m-%d")
+        days[d]["sales"] += float(o.total)
+        days[d]["orders"] += 1
+    for tx in wtxs:
+        if tx.type != "topup":
+            continue
+        d = tx.created_at.strftime("%Y-%m-%d")
+        days[d]["deposits"] += float(tx.amount)
+    return days
+
+
+def _write_daily_sheet(ws, day_rows: list[tuple[str, dict]]) -> None:
+    """day_rows: list of (date_str, {deposits, sales, orders}) already ordered."""
+    ws.append(["Date", "Deposits (Rp)", "Sales (Rp)", "Orders", "Net (Rp)"])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+
+    tot_dep = tot_sales = 0.0
+    tot_orders = 0
+    for d, v in day_rows:
+        dep, sales, orders = round(v["deposits"], 2), round(v["sales"], 2), v["orders"]
+        tot_dep += dep
+        tot_sales += sales
+        tot_orders += orders
+        ws.append([d, dep, sales, orders, round(dep - sales, 2)])
+        for col in (2, 3, 5):
+            ws.cell(row=ws.max_row, column=col).number_format = _MONEY_FMT
+
+    r = ws.max_row + 2
+    ws.cell(row=r, column=1, value="TOTAL").font = Font(bold=True)
+    for col, val in ((2, round(tot_dep, 2)), (3, round(tot_sales, 2)),
+                     (4, tot_orders), (5, round(tot_dep - tot_sales, 2))):
+        c = ws.cell(row=r, column=col, value=val)
+        c.font = Font(bold=True)
+        if col != 4:
+            c.number_format = _MONEY_FMT
+
+    for i, w in enumerate([14, 16, 16, 9, 16], start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
 
 
 @router.get("/reports/transactions.xlsx")
@@ -846,6 +1101,11 @@ def transactions_export_xlsx(
     for i, w in enumerate([12, 7, 16, 13, 20, 15, 16, 9, 18, 32], start=1):
         ws2.column_dimensions[get_column_letter(i)].width = w
 
+    # ── Sheet 3: Daily summary — one row per day (deposits vs sales) ──────────
+    ws3 = wb.create_sheet("Daily summary")
+    days = _daily_reconciliation(orders, wtxs)
+    _write_daily_sheet(ws3, sorted(days.items()))
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -855,4 +1115,92 @@ def transactions_export_xlsx(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="transactions_{span}.xlsx"'},
+    )
+
+
+@router.get("/reports/monthly.xlsx")
+def monthly_reconciliation_xlsx(
+    month: str = Query(..., description="e.g. 2026-08"),
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """One workbook for a whole month's bookkeeping: a 'Daily' sheet with a
+    row for every calendar day (deposits vs shop sales, and the net), plus a
+    'By worker' sheet totalling each worker's shop spend for the month (the
+    figure that gets deducted from payroll)."""
+    try:
+        year, mon = map(int, month.split("-"))
+        start = datetime(year, mon, 1)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid month, use YYYY-MM")
+    end = datetime(year + (mon == 12), (mon % 12) + 1, 1)
+
+    orders = (
+        db.query(Order)
+        .options(joinedload(Order.worker))
+        .filter(Order.created_at >= start, Order.created_at < end, Order.status != "cancelled")
+        .all()
+    )
+    topups = (
+        db.query(WalletTransaction)
+        .filter(
+            WalletTransaction.created_at >= start,
+            WalletTransaction.created_at < end,
+            WalletTransaction.type == "topup",
+        )
+        .all()
+    )
+
+    days = _daily_reconciliation(orders, topups)
+    # fill in every calendar day, even quiet ones, so the month reads top-to-bottom
+    ordered: list[tuple[str, dict]] = []
+    cursor = start
+    while cursor < end:
+        key = cursor.strftime("%Y-%m-%d")
+        ordered.append((key, days.get(key, {"deposits": 0.0, "sales": 0.0, "orders": 0})))
+        cursor += timedelta(days=1)
+
+    wb = Workbook()
+    _write_daily_sheet(wb.active, ordered)
+    wb.active.title = "Daily"
+
+    ws2 = wb.create_sheet("By worker")
+    ws2.append(["Employee ID", "HR / payroll ID", "Worker", "Orders", "Shop spend (Rp)"])
+    for cell in ws2[1]:
+        cell.font = Font(bold=True)
+    ws2.freeze_panes = "A2"
+
+    by_worker: dict[int, dict] = {}
+    for o in orders:
+        w = o.worker
+        rec = by_worker.setdefault(o.worker_id, {
+            "employee_id": w.employee_id if w else "",
+            "hr": (w.hr_employee_id or "") if w else "",
+            "name": w.name if w else "",
+            "orders": 0, "spend": 0.0,
+        })
+        rec["orders"] += 1
+        rec["spend"] += float(o.total)
+
+    grand = 0.0
+    for rec in sorted(by_worker.values(), key=lambda r: r["employee_id"]):
+        spend = round(rec["spend"], 2)
+        grand += spend
+        ws2.append([rec["employee_id"], rec["hr"], rec["name"], rec["orders"], spend])
+        ws2.cell(row=ws2.max_row, column=5).number_format = _MONEY_FMT
+
+    r = ws2.max_row + 2
+    ws2.cell(row=r, column=3, value="TOTAL").font = Font(bold=True)
+    tc = ws2.cell(row=r, column=5, value=round(grand, 2))
+    tc.font, tc.number_format = Font(bold=True), _MONEY_FMT
+    for i, w in enumerate([13, 18, 22, 9, 18], start=1):
+        ws2.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="reconciliation_{month}.xlsx"'},
     )

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import Ic from '../../components/Ic'
 import { formatCurrency } from '../../utils/format'
@@ -123,6 +124,7 @@ export function CategorySelect({ value, onChange, categories = [] }) {
 
 // ── FulfillSheet ─────────────────────────────────────────────────────────────
 function FulfillSheet({ order, open, onClose, onAdvance }) {
+  const { t } = useTranslation()
   const [checked, setChecked] = useState({})
   useEffect(() => {
     if (open) {
@@ -134,9 +136,9 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
   if (!order) return null
 
   const STATUS_META = {
-    pending:   { label: 'Pending',   color: '#A06B0E', bg: '#FDEFD1' },
-    fulfilled: { label: 'Fulfilled', color: '#0E7A4D', bg: '#D6F3E6' },
-    cancelled: { label: 'Cancelled', color: '#991B1B', bg: '#FCE0E0' },
+    pending:   { label: t('admin.dashboard.statusPending'),   color: '#A06B0E', bg: '#FDEFD1' },
+    fulfilled: { label: t('admin.dashboard.statusFulfilled'), color: '#0E7A4D', bg: '#D6F3E6' },
+    cancelled: { label: t('admin.dashboard.statusCancelled'), color: '#991B1B', bg: '#FCE0E0' },
   }
   const meta = STATUS_META[order.status] || STATUS_META.pending
   const items = order.items || []
@@ -165,7 +167,7 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
 
         <div style={{ padding: '8px 20px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Order #{order.id}</div>
+            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{t('admin.fulfill.title', { id: order.id })}</div>
             <div style={{
               padding: '4px 10px', borderRadius: 999,
               background: meta.bg, color: meta.color,
@@ -181,7 +183,7 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
           <div style={{ padding: '0 20px 14px' }}>
             <div style={{ background: T.surface, borderRadius: 16, padding: 14, border: `1px solid ${T.line}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ color: T.ink3, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>Picking progress</div>
+                <div style={{ color: T.ink3, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' }}>{t('admin.fulfill.pickingProgress')}</div>
                 <div style={{ color: T.ink, fontSize: 13, fontWeight: 700 }}>{checkedQty}/{totalQty}</div>
               </div>
               <div style={{ height: 8, background: T.surfaceAlt, borderRadius: 8, overflow: 'hidden' }}>
@@ -197,7 +199,7 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.length === 0 ? (
-            <div style={{ color: T.ink3, textAlign: 'center', padding: 20, fontSize: 14 }}>No items</div>
+            <div style={{ color: T.ink3, textAlign: 'center', padding: 20, fontSize: 14 }}>{t('admin.fulfill.noItems')}</div>
           ) : items.map((it, i) => {
             const isChecked = !!checked[i]
             return (
@@ -240,7 +242,7 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
           padding: '16px 20px 34px', boxShadow: '0 -4px 20px rgba(12,35,64,0.05)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ color: T.ink3, fontSize: 13 }}>Order total</span>
+            <span style={{ color: T.ink3, fontSize: 13 }}>{t('admin.fulfill.orderTotal')}</span>
             <span style={{ color: T.ink, fontSize: 16, fontWeight: 700 }}>{formatCurrency(order.total)}</span>
           </div>
           {order.status === 'pending' && (
@@ -251,14 +253,14 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
               fontSize: 15, fontWeight: 700, textAlign: 'center',
               cursor: allChecked ? 'pointer' : 'default',
             }}>
-              {allChecked ? 'Mark ready for pickup' : `Pick all items (${checkedQty}/${totalQty})`}
+              {allChecked ? t('admin.fulfill.markReady') : t('admin.fulfill.pickAll', { done: checkedQty, total: totalQty })}
             </div>
           )}
           {order.status === 'fulfilled' && (
             <div onClick={onClose} style={{
               padding: 16, borderRadius: 16, background: T.surfaceAlt, color: T.ink2,
               fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
-            }}>Close</div>
+            }}>{t('admin.fulfill.close')}</div>
           )}
         </div>
       </div>
@@ -268,6 +270,7 @@ function FulfillSheet({ order, open, onClose, onAdvance }) {
 
 // ── EditProductSheet ─────────────────────────────────────────────────────────
 function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -291,20 +294,23 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
       const res = await api.post(`/admin/products/${draft.id}/image`, form)
       setDraft(res.data)
       onSaved()
-      toast.success('Photo updated')
+      toast.success(t('admin.editProduct.photoUpdated'))
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to upload photo')
+      toast.error(err.response?.data?.detail || t('admin.editProduct.photoFail'))
     } finally {
       setUploading(false)
     }
   }
 
   async function save() {
+    const sku = (draft.sku || '').trim()
+    if (!sku) { toast.error(t('admin.editProduct.sku')); return }
     setSaving(true)
     try {
       await api.put(`/admin/products/${draft.id}`, {
         name: draft.name,
         name_zh: (draft.name_zh || '').trim(),
+        sku,
         unit: draft.unit,
         price: draft.price,
         stock: draft.stock,
@@ -312,11 +318,14 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
         sub_category: (draft.sub_category || '').trim(),
         is_active: draft.is_active,
       })
-      toast.success('Product updated')
+      toast.success(t('admin.editProduct.updated'))
       onSaved()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to save')
+      const detail = err.response?.status === 409
+        ? t('admin.editProduct.skuTaken')
+        : (err.response?.data?.detail || t('admin.editProduct.saveFail'))
+      toast.error(detail)
     } finally {
       setSaving(false)
     }
@@ -342,7 +351,7 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
         </div>
 
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Edit product</div>
+          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{t('admin.editProduct.title')}</div>
           <div onClick={onClose} style={{
             width: 36, height: 36, borderRadius: 12, background: T.surface,
             border: `1px solid ${T.line}`, display: 'grid', placeItems: 'center', cursor: 'pointer',
@@ -354,7 +363,7 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: T.surface, borderRadius: 16, padding: 14, border: `1px solid ${T.line}` }}>
             <ProductThumb name={draft.name} imageUrl={draft.image_url} updatedAt={draft.updated_at} size={56} radius={12} />
-            <div style={{ flex: 1, color: T.ink3, fontSize: 12 }}>Product ID #{draft.id} · SKU {draft.sku}</div>
+            <div style={{ flex: 1, color: T.ink3, fontSize: 12 }}>{t('admin.editProduct.productId', { id: draft.id })}</div>
             <input
               ref={fileInputRef}
               type="file"
@@ -368,22 +377,29 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
                 padding: '8px 12px', borderRadius: 10, background: T.brandSoft, color: T.brand,
                 fontSize: 12, fontWeight: 700, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.6 : 1,
               }}
-            >{uploading ? 'Uploading…' : 'Change photo'}</div>
+            >{uploading ? t('admin.editProduct.uploading') : t('admin.editProduct.changePhoto')}</div>
           </div>
 
-          <Field label="Name">
+          <Field label={t('admin.editProduct.name')}>
             <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} style={inputSt} />
           </Field>
-          <Field label="Chinese name">
+          <Field label={t('admin.editProduct.nameZh')}>
             <input value={draft.name_zh || ''} onChange={e => setDraft({ ...draft, name_zh: e.target.value })}
               style={inputSt} placeholder="中文名称" />
           </Field>
 
+          <Field label={t('admin.editProduct.sku')}>
+            <input value={draft.sku || ''}
+              onChange={e => setDraft({ ...draft, sku: e.target.value.toUpperCase() })}
+              style={{ ...inputSt, fontWeight: 700, letterSpacing: 0.5 }} placeholder="MM-001" />
+            <div style={{ color: T.ink3, fontSize: 11, marginTop: 4 }}>{t('admin.editProduct.skuHint')}</div>
+          </Field>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Unit">
+            <Field label={t('admin.editProduct.unit')}>
               <input value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })} style={inputSt} />
             </Field>
-            <Field label="Price (IDR)">
+            <Field label={t('admin.editProduct.price')}>
               <input type="number" step="0.10" value={draft.price}
                 onChange={e => setDraft({ ...draft, price: parseFloat(e.target.value) || 0 })}
                 style={inputSt} />
@@ -391,17 +407,17 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Category">
+            <Field label={t('admin.editProduct.category')}>
               <CategorySelect value={draft.category} categories={categories}
                 onChange={v => setDraft({ ...draft, category: v })} />
             </Field>
-            <Field label="Sub category">
+            <Field label={t('admin.editProduct.subCategory')}>
               <input value={draft.sub_category || ''} onChange={e => setDraft({ ...draft, sub_category: e.target.value })}
                 style={inputSt} />
             </Field>
           </div>
 
-          <Field label="Stock on hand">
+          <Field label={t('admin.editProduct.stockOnHand')}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: 6,
@@ -429,9 +445,9 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
             display: 'flex', alignItems: 'center', gap: 12,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ color: T.ink, fontSize: 14, fontWeight: 700 }}>Show to workers</div>
+              <div style={{ color: T.ink, fontSize: 14, fontWeight: 700 }}>{t('admin.editProduct.showToWorkers')}</div>
               <div style={{ color: T.ink3, fontSize: 12, marginTop: 2 }}>
-                {draft.is_active ? 'Visible in shop.' : 'Hidden from shop entirely.'}
+                {draft.is_active ? t('admin.editProduct.visibleInShop') : t('admin.editProduct.hiddenFromShop')}
               </div>
             </div>
             <Toggle value={draft.is_active} onChange={v => setDraft({ ...draft, is_active: v })} />
@@ -447,12 +463,12 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
             flex: 1, padding: 16, borderRadius: 16,
             background: T.surfaceAlt, color: T.ink2,
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
-          }}>Cancel</div>
+          }}>{t('admin.common.cancel')}</div>
           <div onClick={save} style={{
             flex: 2, padding: 16, borderRadius: 16,
             background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
-          }}>{saving ? 'Saving…' : 'Save changes'}</div>
+          }}>{saving ? t('admin.common.saving') : t('admin.common.save')}</div>
         </div>
       </div>
     </>
@@ -463,6 +479,7 @@ function EditProductSheet({ product, open, onClose, onSaved, categories = [] }) 
 const emptyDraft = { name: '', name_zh: '', sku: '', unit: '', price: '', category: '', sub_category: '' }
 
 function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState(emptyDraft)
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -489,11 +506,11 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
     const name = draft.name.trim()
     const price = parseFloat(draft.price)
     if (!name) {
-      toast.error('Enter an item name.')
+      toast.error(t('admin.editProduct.chooseName'))
       return
     }
     if (!(price > 0)) {
-      toast.error('Enter a selling price greater than 0.')
+      toast.error(t('admin.editProduct.choosePrice'))
       return
     }
     setSaving(true)
@@ -514,17 +531,17 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
         try {
           await api.post(`/admin/products/${res.data.id}/image`, form)
         } catch (err) {
-          toast.error(err.response?.data?.detail || 'Product added, but the photo failed to upload')
+          toast.error(err.response?.data?.detail || t('admin.editProduct.photoFail'))
           onCreated()
           onClose()
           return
         }
       }
-      toast.success('Product added')
+      toast.success(t('admin.editProduct.added'))
       onCreated()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to add product')
+      toast.error(err.response?.data?.detail || t('admin.editProduct.addFail'))
     } finally {
       setSaving(false)
     }
@@ -550,7 +567,7 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
         </div>
 
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Add item</div>
+          <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{t('admin.editProduct.addTitle')}</div>
           <div onClick={onClose} style={{
             width: 36, height: 36, borderRadius: 12, background: T.surface,
             border: `1px solid ${T.line}`, display: 'grid', placeItems: 'center', cursor: 'pointer',
@@ -573,7 +590,7 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
                 <Ic name="box" size={22} color={T.ink3} />
               )}
             </div>
-            <div style={{ flex: 1, color: T.ink3, fontSize: 12 }}>{photoFile ? photoFile.name : 'No photo selected'}</div>
+            <div style={{ flex: 1, color: T.ink3, fontSize: 12 }}>{photoFile ? photoFile.name : t('admin.editProduct.noPhoto')}</div>
             <input
               ref={fileInputRef}
               type="file"
@@ -587,39 +604,39 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
                 padding: '8px 12px', borderRadius: 10, background: T.brandSoft, color: T.brand,
                 fontSize: 12, fontWeight: 700, cursor: 'pointer',
               }}
-            >{photoPreview ? 'Change' : 'Choose photo'}</div>
+            >{photoPreview ? t('admin.editProduct.change') : t('admin.editProduct.choosePhoto')}</div>
           </div>
 
-          <Field label="Name">
-            <input autoFocus value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} style={inputSt} placeholder="Item name" />
+          <Field label={t('admin.editProduct.name')}>
+            <input autoFocus value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} style={inputSt} />
           </Field>
-          <Field label="Chinese name (optional)">
+          <Field label={t('admin.editProduct.nameZhOptional')}>
             <input value={draft.name_zh} onChange={e => setDraft({ ...draft, name_zh: e.target.value })} style={inputSt} placeholder="中文名称" />
           </Field>
-          <Field label="SKU (optional — auto-generated if left blank)">
-            <input value={draft.sku} onChange={e => setDraft({ ...draft, sku: e.target.value })} style={inputSt} placeholder="MM-001" />
+          <Field label={t('admin.editProduct.skuOptional')}>
+            <input value={draft.sku} onChange={e => setDraft({ ...draft, sku: e.target.value.toUpperCase() })} style={inputSt} placeholder="MM-001" />
           </Field>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Unit">
+            <Field label={t('admin.editProduct.unit')}>
               <input value={draft.unit} onChange={e => setDraft({ ...draft, unit: e.target.value })} style={inputSt} placeholder="pcs" />
             </Field>
-            <Field label="Price (IDR)">
+            <Field label={t('admin.editProduct.price')}>
               <input type="number" step="0.10" value={draft.price}
                 onChange={e => setDraft({ ...draft, price: e.target.value })}
                 style={inputSt} placeholder="0" />
             </Field>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Category">
+            <Field label={t('admin.editProduct.category')}>
               <CategorySelect value={draft.category} categories={categories}
                 onChange={v => setDraft({ ...draft, category: v })} />
             </Field>
-            <Field label="Sub category">
+            <Field label={t('admin.editProduct.subCategory')}>
               <input value={draft.sub_category} onChange={e => setDraft({ ...draft, sub_category: e.target.value })} style={inputSt} />
             </Field>
           </div>
           <div style={{ color: T.ink3, fontSize: 12 }}>
-            Stock starts at 0 — set it from the item's Edit sheet after creating it.
+            {t('admin.editProduct.stockStartsZero')}
           </div>
         </div>
 
@@ -632,12 +649,12 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
             flex: 1, padding: 16, borderRadius: 16,
             background: T.surfaceAlt, color: T.ink2,
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
-          }}>Cancel</div>
+          }}>{t('admin.common.cancel')}</div>
           <div onClick={save} style={{
             flex: 2, padding: 16, borderRadius: 16,
             background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
-          }}>{saving ? 'Adding…' : 'Add item'}</div>
+          }}>{saving ? t('admin.common.saving') : t('admin.editProduct.addTitle')}</div>
         </div>
       </div>
     </>
@@ -646,6 +663,7 @@ function AddProductSheet({ open, onClose, onCreated, categories = [] }) {
 
 // ── InvoiceSheet ──────────────────────────────────────────────────────────────
 function InvoiceSheet({ invoice, open, onClose, onResolved }) {
+  const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   if (!invoice) return null
 
@@ -653,11 +671,11 @@ function InvoiceSheet({ invoice, open, onClose, onResolved }) {
     setBusy(true)
     try {
       await api.post(`/invoices/${invoice.id}/${action}`)
-      toast.success(action === 'approve' ? 'Invoice approved — stock updated' : 'Invoice rejected')
+      toast.success(action === 'approve' ? t('admin.invoices.approved') : t('admin.invoices.rejected'))
       onResolved()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || `Failed to ${action}`)
+      toast.error(err.response?.data?.detail || (action === 'approve' ? t('admin.invoices.approveFail') : t('admin.invoices.rejectFail')))
     } finally {
       setBusy(false)
     }
@@ -683,7 +701,7 @@ function InvoiceSheet({ invoice, open, onClose, onResolved }) {
         </div>
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>Invoice review</div>
+            <div style={{ color: T.ink3, fontSize: 12, fontWeight: 600 }}>{t('admin.invoices.review')}</div>
             <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>
               {invoice.supplier_name || invoice.filename}
             </div>
@@ -699,9 +717,9 @@ function InvoiceSheet({ invoice, open, onClose, onResolved }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ background: T.surface, borderRadius: 16, padding: 14, border: `1px solid ${T.line}` }}>
             {[
-              { label: 'Supplier', value: invoice.supplier_name || '—' },
-              { label: 'Uploaded', value: invoice.uploaded_at ? new Date(invoice.uploaded_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
-              { label: 'Items', value: `${invoice.items?.length ?? 0} line items` },
+              { label: t('admin.invoices.supplier'), value: invoice.supplier_name || '—' },
+              { label: t('admin.invoices.uploadedAt'), value: invoice.uploaded_at ? new Date(invoice.uploaded_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
+              { label: t('admin.invoices.itemsLabel'), value: t('admin.invoices.lineItems', { count: invoice.items?.length ?? 0 }) },
             ].map(({ label, value }, i) => (
               <div key={label} style={{
                 display: 'flex', justifyContent: 'space-between',
@@ -719,7 +737,7 @@ function InvoiceSheet({ invoice, open, onClose, onResolved }) {
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
           }}>
             <Ic name="doc" size={28} color={T.ink3} />
-            <div>Invoice PDF · {invoice.filename}</div>
+            <div>{t('admin.invoices.pdfLabel', { name: invoice.filename })}</div>
           </div>
         </div>
 
@@ -732,12 +750,12 @@ function InvoiceSheet({ invoice, open, onClose, onResolved }) {
             flex: 1, padding: 16, borderRadius: 16, background: T.badSoft, color: T.bad,
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: busy ? 'default' : 'pointer',
             opacity: busy ? 0.6 : 1,
-          }}>Reject</div>
+          }}>{t('admin.invoices.reject')}</div>
           <div onClick={() => !busy && resolve('approve')} style={{
             flex: 2, padding: 16, borderRadius: 16, background: T.good, color: '#fff',
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: busy ? 'default' : 'pointer',
             opacity: busy ? 0.6 : 1,
-          }}>Approve invoice</div>
+          }}>{t('admin.invoices.approveSheet')}</div>
         </div>
       </div>
     </>
@@ -747,12 +765,14 @@ function InvoiceSheet({ invoice, open, onClose, onResolved }) {
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 function AdminTabBar({ active, pendingCount }) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const tabs = [
-    { id: 'dashboard', path: '/admin/dashboard', icon: 'home',    label: 'Dashboard' },
-    { id: 'orders',    path: '/admin/orders',    icon: 'orders',  label: 'Orders', badge: pendingCount },
-    { id: 'cashier',   path: '/admin/cashier',   icon: 'cart',    label: 'Cashier' },
-    { id: 'inventory', path: '/admin/inventory', icon: 'box',     label: 'Inventory' },
-    { id: 'profile',   path: '/admin/profile',   icon: 'profile', label: 'Me' },
+    { id: 'dashboard', path: '/admin/dashboard', icon: 'home',    label: t('admin.nav.dashboard') },
+    { id: 'orders',    path: '/admin/orders',    icon: 'orders',  label: t('admin.nav.orders'), badge: pendingCount },
+    { id: 'cashier',   path: '/admin/cashier',   icon: 'cart',    label: t('admin.nav.cashier') },
+    { id: 'inventory', path: '/admin/inventory', icon: 'box',     label: t('admin.nav.inventory') },
+    { id: 'workers',   path: '/admin/workers',   icon: 'users',   label: t('admin.nav.workers') },
+    { id: 'profile',   path: '/admin/profile',   icon: 'profile', label: t('admin.nav.me') },
   ]
   return (
     <div style={{
@@ -762,16 +782,16 @@ function AdminTabBar({ active, pendingCount }) {
       backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
       borderTop: `1px solid ${T.line}`, zIndex: 20, fontFamily: FONT,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 2px' }}>
         {tabs.map(t => {
           const isActive = active === t.id
           return (
             <div key={t.id} onClick={() => navigate(t.path)} style={{
               flex: 1, padding: '6px 0', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 3, position: 'relative', cursor: 'pointer',
+              alignItems: 'center', gap: 3, position: 'relative', cursor: 'pointer', minWidth: 0,
             }}>
               <div style={{ position: 'relative' }}>
-                <Ic name={t.icon} size={24} color={isActive ? T.brand : T.ink3} stroke={isActive ? 2 : 1.7} />
+                <Ic name={t.icon} size={23} color={isActive ? T.brand : T.ink3} stroke={isActive ? 2 : 1.7} />
                 {t.badge > 0 && (
                   <div style={{
                     position: 'absolute', top: -4, right: -8,
@@ -783,7 +803,10 @@ function AdminTabBar({ active, pendingCount }) {
                   }}>{t.badge > 9 ? '9+' : t.badge}</div>
                 )}
               </div>
-              <span style={{ fontSize: 10, fontWeight: 600, color: isActive ? T.brand : T.ink3 }}>{t.label}</span>
+              <span style={{
+                fontSize: 9.5, fontWeight: 600, color: isActive ? T.brand : T.ink3,
+                whiteSpace: 'nowrap', letterSpacing: -0.2,
+              }}>{t.label}</span>
             </div>
           )
         })}
@@ -795,6 +818,7 @@ function AdminTabBar({ active, pendingCount }) {
 // ── AdminLayout ───────────────────────────────────────────────────────────────
 export default function AdminLayout() {
   const location = useLocation()
+  const { t } = useTranslation()
   const [pendingCount, setPendingCount] = useState(0)
   const [fulfillOrder, setFulfillOrder] = useState(null)
   const [editProduct, setEditProduct] = useState(null)
@@ -829,11 +853,11 @@ export default function AdminLayout() {
   async function advanceOrder(orderId, onClose) {
     try {
       await api.put(`/admin/orders/${orderId}/fulfill`)
-      toast.success('Order marked as fulfilled')
+      toast.success(t('admin.fulfill.markedFulfilled'))
       refresh()
       if (onClose) onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to update order')
+      toast.error(err.response?.data?.detail || t('admin.fulfill.fulfillFail'))
     }
   }
 

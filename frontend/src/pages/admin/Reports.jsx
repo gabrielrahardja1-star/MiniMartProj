@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download, Calendar, TrendingUp, Users, ShoppingBag, FileSpreadsheet } from 'lucide-react'
 import { formatCurrency, formatMonth } from '../../utils/format'
 import Button from '../../components/Button'
@@ -6,6 +7,21 @@ import PageHeader from '../../components/PageHeader'
 import { SkeletonRow } from '../../components/LoadingSkeleton'
 import api from '../../api'
 import toast from 'react-hot-toast'
+
+// download a protected xlsx endpoint via fetch (Button/anchor can't carry the
+// bearer token); keeps the object URL alive until the browser starts the save
+async function downloadXlsx(url, filename) {
+  const token = localStorage.getItem('token')
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error((await res.text().catch(() => '')) || `HTTP ${res.status}`)
+  const href = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = href
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(href) }, 2000)
+}
 
 function BarChart({ data, maxValue }) {
   if (!data.length) return null
@@ -40,9 +56,11 @@ function BarChart({ data, maxValue }) {
 }
 
 export default function Reports() {
+  const { t } = useTranslation()
   const [report, setReport] = useState([])
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const [loading, setLoading] = useState(false)
+  const [monthlyExporting, setMonthlyExporting] = useState(false)
 
   // Matches how `month` above is derived, and how the backend stores
   // created_at (naive UTC) — keeps the export's "day" in step with the
@@ -57,7 +75,7 @@ export default function Reports() {
     try {
       const { data } = await api.get(`/admin/reports/spending?date_from=${month}-01T00:00:00`)
       setReport(data)
-    } catch { toast.error('Failed to load report') }
+    } catch { toast.error(t('admin.reports.loadFail')) }
     finally { setLoading(false) }
   }
 
@@ -74,38 +92,37 @@ export default function Reports() {
         a.download = `spending_${month}.csv`
         a.click()
       })
-      .catch(() => toast.error('Export failed'))
+      .catch(() => toast.error(t('admin.reports.exportFail')))
+  }
+
+  async function downloadMonthly() {
+    setMonthlyExporting(true)
+    try {
+      await downloadXlsx(`/api/admin/reports/monthly.xlsx?month=${month}`, `reconciliation_${month}.xlsx`)
+    } catch (err) {
+      toast.error(`${t('admin.reports.exportFail')}: ${err.message}`)
+    } finally {
+      setMonthlyExporting(false)
+    }
   }
 
   async function downloadTransactions() {
     if (!txFrom || !txTo) {
-      toast.error('Pick both dates')
+      toast.error(t('admin.reports.pickBoth'))
       return
     }
     if (txFrom > txTo) {
-      toast.error('“From” date is after “To” date')
+      toast.error(t('admin.reports.fromAfterTo'))
       return
     }
     setTxExporting(true)
     try {
-      const token = localStorage.getItem('token')
-      const url = `/api/admin/reports/transactions.xlsx?date_from=${txFrom}&date_to=${txTo}`
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '')
-        throw new Error(detail || `HTTP ${res.status}`)
-      }
-      const blob = await res.blob()
-      const href = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = href
-      a.download = `transactions_${txFrom}_${txTo}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      // keep the object URL alive until the browser has started the download
-      setTimeout(() => { a.remove(); URL.revokeObjectURL(href) }, 2000)
+      await downloadXlsx(
+        `/api/admin/reports/transactions.xlsx?date_from=${txFrom}&date_to=${txTo}`,
+        `transactions_${txFrom}_${txTo}.xlsx`,
+      )
     } catch (err) {
-      toast.error(`Export failed: ${err.message}`)
+      toast.error(`${t('admin.reports.exportFail')}: ${err.message}`)
     } finally {
       setTxExporting(false)
     }
@@ -116,15 +133,15 @@ export default function Reports() {
   const maxValue = Math.max(...report.map(r => r.total_deduction), 1)
 
   const summaryCards = [
-    { icon: TrendingUp, label: 'Total Deductions', value: formatCurrency(total), accent: 'border-amber-500' },
-    { icon: Users, label: 'Workers', value: report.length, accent: 'border-blue-400' },
-    { icon: ShoppingBag, label: 'Orders', value: totalOrders, accent: 'border-green-400' },
+    { icon: TrendingUp, label: t('admin.reports.totalDeductions'), value: formatCurrency(total), accent: 'border-amber-500' },
+    { icon: Users, label: t('admin.reports.workers'), value: report.length, accent: 'border-blue-400' },
+    { icon: ShoppingBag, label: t('admin.reports.orders'), value: totalOrders, accent: 'border-green-400' },
   ]
 
   return (
     <div>
       <PageHeader
-        title="Spending Report"
+        title={t('admin.reports.title')}
         subtitle={formatMonth(month)}
         action={
           <div className="flex items-center gap-2">
@@ -137,7 +154,10 @@ export default function Reports() {
                 className="border-2 border-slate-200 focus:border-amber-400 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none transition-colors duration-150"
               />
             </div>
-            <Button variant="secondary" icon={Download} onClick={downloadCsv}>Export CSV</Button>
+            <Button variant="secondary" icon={Download} onClick={downloadMonthly} loading={monthlyExporting}>
+              {t('admin.reports.monthlyExcel')}
+            </Button>
+            <Button variant="secondary" icon={Download} onClick={downloadCsv}>{t('admin.reports.exportCsv')}</Button>
           </div>
         }
       />
@@ -148,15 +168,15 @@ export default function Reports() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <FileSpreadsheet size={15} className="text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-700">Transactions export</h3>
+              <h3 className="text-sm font-semibold text-slate-700">{t('admin.reports.txTitle')}</h3>
             </div>
             <p className="text-xs text-slate-400">
-              Every sale line item and wallet movement in the range, as a two-sheet Excel workbook. Pick the same day in both fields for a single day.
+              {t('admin.reports.txBlurb')}
             </p>
           </div>
           <div className="flex items-end gap-2">
             <label className="flex flex-col text-xs text-slate-500 font-medium gap-1">
-              From
+              {t('admin.reports.from')}
               <input
                 type="date"
                 value={txFrom}
@@ -166,7 +186,7 @@ export default function Reports() {
               />
             </label>
             <label className="flex flex-col text-xs text-slate-500 font-medium gap-1">
-              To
+              {t('admin.reports.to')}
               <input
                 type="date"
                 value={txTo}
@@ -181,7 +201,7 @@ export default function Reports() {
               onClick={downloadTransactions}
               loading={txExporting}
             >
-              {txExporting ? 'Exporting…' : 'Excel'}
+              {txExporting ? t('admin.common.exporting') : t('admin.common.excel')}
             </Button>
           </div>
         </div>
@@ -206,8 +226,8 @@ export default function Reports() {
       {!loading && report.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-5 mb-5 border border-slate-100">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-700">Spending by Worker</h3>
-            <span className="text-xs text-slate-400">orders →</span>
+            <h3 className="text-sm font-semibold text-slate-700">{t('admin.reports.spendingByWorker')}</h3>
+            <span className="text-xs text-slate-400">{t('admin.reports.ordersArrow')}</span>
           </div>
           <BarChart data={report} maxValue={maxValue} />
         </div>
@@ -218,7 +238,7 @@ export default function Reports() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              {['Employee ID', 'Name', 'Orders', 'Total Deduction'].map(h => (
+              {[t('admin.reports.employeeId'), t('admin.reports.name'), t('admin.reports.orders'), t('admin.reports.totalDeduction')].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-slate-500 font-semibold text-xs uppercase tracking-wide">{h}</th>
               ))}
             </tr>
@@ -227,7 +247,7 @@ export default function Reports() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
             ) : report.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-slate-400">No data for {formatMonth(month)}</td></tr>
+              <tr><td colSpan={4} className="px-4 py-10 text-center text-slate-400">{t('admin.reports.noData', { month: formatMonth(month) })}</td></tr>
             ) : report.map(r => (
               <tr key={r.employee_id} className="hover:bg-amber-50/40 transition-colors duration-150">
                 <td className="px-4 py-3 font-mono text-slate-500 text-xs">{r.employee_id}</td>
@@ -240,7 +260,7 @@ export default function Reports() {
           {report.length > 0 && (
             <tfoot className="bg-slate-50 border-t border-slate-200">
               <tr>
-                <td colSpan={3} className="px-4 py-3 font-semibold text-slate-700 text-right">Grand Total</td>
+                <td colSpan={3} className="px-4 py-3 font-semibold text-slate-700 text-right">{t('admin.reports.grandTotal')}</td>
                 <td className="px-4 py-3 font-bold text-slate-900">{formatCurrency(total)}</td>
               </tr>
             </tfoot>

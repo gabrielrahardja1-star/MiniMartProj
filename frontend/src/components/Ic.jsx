@@ -40,6 +40,8 @@ export default function Ic({ name, size = 22, color = 'currentColor', stroke = 1
     case 'edit':    return wrap(<><path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m13 5 4 4"/></>)
     case 'pkg':     return wrap(<><path d="M3 7v10l9 4 9-4V7"/><path d="m3 7 9 4 9-4-9-4-9 4Z"/><path d="M12 11v10"/></>)
     case 'download': return wrap(<><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></>)
+    case 'users':   return wrap(<><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c1-3 3-4.5 5.5-4.5S13.5 17 14.5 20"/><path d="M16 5.2a3 3 0 0 1 0 5.6"/><path d="M18 15.2c1.9.5 3.2 1.9 4 4.8"/></>)
+    case 'calendar':return wrap(<><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></>)
     default: return null
   }
 }

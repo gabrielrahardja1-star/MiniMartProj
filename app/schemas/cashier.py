@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel
 from app.schemas.order import OrderItemRequest
 from app.schemas.product import ProductOut
@@ -22,6 +23,7 @@ class CashierSaleRequest(BaseModel):
     client_record_id: str
     worker_employee_id: str
     items: list[OrderItemRequest]
+    occurred_at: datetime | None = None  # backdate the sale (naive UTC); defaults to now
 
 
 class CashierSalesRequest(BaseModel):

@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { T, FONT } from '../../utils/theme'
 import { formatCurrency } from '../../utils/format'
 import Ic from '../../components/Ic'
 import api from '../../api'
 import toast from 'react-hot-toast'
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 // ── Shared field components (must be outside WorkerSheet to avoid remount) ───
 const inputSt = {
@@ -25,6 +29,7 @@ function Field({ label, children }) {
 
 // ── Add / Edit Worker sheet ───────────────────────────────────────────────────
 function WorkerSheet({ worker, open, onClose, onSaved }) {
+  const { t } = useTranslation()
   const isEdit = !!worker
   const [form, setForm] = useState({ employee_id: '', hr_employee_id: '', name: '', pin: '', pin_confirm: '' })
   const [saving, setSaving] = useState(false)
@@ -39,11 +44,11 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
   }, [open, worker])
 
   async function save() {
-    if (!form.name.trim()) return toast.error('Name is required')
-    if (!isEdit && !form.employee_id.trim()) return toast.error('Employee ID is required')
-    if (!isEdit && !form.pin) return toast.error('PIN is required')
-    if (form.pin && form.pin !== form.pin_confirm) return toast.error('PINs do not match')
-    if (form.pin && !/^\d{4,8}$/.test(form.pin)) return toast.error('PIN must be 4–8 digits')
+    if (!form.name.trim()) return toast.error(t('admin.workers.nameRequired'))
+    if (!isEdit && !form.employee_id.trim()) return toast.error(t('admin.workers.idRequired'))
+    if (!isEdit && !form.pin) return toast.error(t('admin.workers.pinRequired'))
+    if (form.pin && form.pin !== form.pin_confirm) return toast.error(t('admin.workers.pinMismatch'))
+    if (form.pin && !/^\d{4,8}$/.test(form.pin)) return toast.error(t('admin.workers.pinFormat'))
 
     setSaving(true)
     try {
@@ -51,7 +56,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
         const payload = { name: form.name, hr_employee_id: form.hr_employee_id.trim() || null }
         if (form.pin) payload.pin = form.pin
         await api.patch(`/admin/workers/${worker.id}`, payload)
-        toast.success('Worker updated')
+        toast.success(t('admin.workers.updated'))
       } else {
         await api.post('/admin/workers/', {
           employee_id: form.employee_id.trim().toUpperCase(),
@@ -59,12 +64,12 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
           name: form.name.trim(),
           pin: form.pin,
         })
-        toast.success('Worker created')
+        toast.success(t('admin.workers.created'))
       }
       onSaved()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to save')
+      toast.error(err.response?.data?.detail || t('admin.workers.saveFail'))
     } finally {
       setSaving(false)
     }
@@ -91,7 +96,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
 
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>
-            {isEdit ? 'Edit worker' : 'Add worker'}
+            {isEdit ? t('admin.workers.editTitle') : t('admin.workers.addTitle')}
           </div>
           <div onClick={onClose} style={{
             width: 36, height: 36, borderRadius: 12, background: T.surface,
@@ -102,7 +107,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Field label="Full name">
+          <Field label={t('admin.workers.fullName')}>
             <input
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -111,7 +116,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
             />
           </Field>
 
-          <Field label="Employee ID">
+          <Field label={t('admin.workers.employeeId')}>
             <input
               value={form.employee_id}
               onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}
@@ -121,7 +126,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
             />
           </Field>
 
-          <Field label="HR / payroll ID (optional)">
+          <Field label={t('admin.workers.hrId')}>
             <input
               value={form.hr_employee_id}
               onChange={e => setForm(f => ({ ...f, hr_employee_id: e.target.value }))}
@@ -130,7 +135,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
             />
           </Field>
 
-          <Field label={isEdit ? 'New PIN (leave blank to keep)' : 'PIN (4–8 digits)'}>
+          <Field label={isEdit ? t('admin.workers.pinKeep') : t('admin.workers.pin4')}>
             <input
               type="password"
               inputMode="numeric"
@@ -143,7 +148,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
           </Field>
 
           {(form.pin || !isEdit) && (
-            <Field label="Confirm PIN">
+            <Field label={t('admin.workers.confirmPin')}>
               <input
                 type="password"
                 inputMode="numeric"
@@ -163,7 +168,7 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
             background: T.surfaceAlt, borderRadius: 14, padding: '10px 14px',
             color: T.ink3, fontSize: 13, lineHeight: 1.5,
           }}>
-            Workers log in with their Employee ID and PIN on the login screen.
+            {t('admin.workers.loginHint')}
           </div>
         </div>
 
@@ -176,12 +181,12 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
             flex: 1, padding: 16, borderRadius: 16,
             background: T.surfaceAlt, color: T.ink2,
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
-          }}>Cancel</div>
+          }}>{t('admin.common.cancel')}</div>
           <div onClick={save} style={{
             flex: 2, padding: 16, borderRadius: 16,
             background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
-          }}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create worker'}</div>
+          }}>{saving ? t('admin.common.saving') : isEdit ? t('admin.common.save') : t('admin.workers.create')}</div>
         </div>
       </div>
     </>
@@ -190,10 +195,12 @@ function WorkerSheet({ worker, open, onClose, onSaved }) {
 
 // ── Wallet top-up / balance-edit sheet ────────────────────────────────────────
 function TopUpSheet({ worker, open, onClose, onSaved }) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState('topup') // 'topup' | 'set'
   const [amount, setAmount] = useState('')
   const [newBalance, setNewBalance] = useState('')
   const [note, setNote] = useState('')
+  const [date, setDate] = useState(todayStr())
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -202,28 +209,31 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
       setAmount('')
       setNewBalance(worker ? String(worker.balance) : '')
       setNote('')
+      setDate(todayStr())
     }
   }, [open, worker?.id])
 
   async function save() {
     setSaving(true)
+    // only backdate when the admin actually picked an earlier day
+    const occurred_at = date && date !== todayStr() ? `${date}T12:00:00` : undefined
     try {
       if (mode === 'topup') {
         const parsed = Number(amount)
-        if (!parsed || parsed <= 0) { toast.error('Enter a top-up amount'); setSaving(false); return }
-        await api.post(`/admin/workers/${worker.id}/topup`, { amount: parsed, note })
-        toast.success('Balance topped up')
+        if (!parsed || parsed <= 0) { toast.error(t('admin.workers.enterTopup')); setSaving(false); return }
+        await api.post(`/admin/workers/${worker.id}/topup`, { amount: parsed, note, occurred_at })
+        toast.success(t('admin.workers.toppedUp'))
       } else {
         const parsed = Number(newBalance)
-        if (newBalance === '' || parsed < 0) { toast.error('Enter a valid balance'); setSaving(false); return }
-        if (parsed === worker.balance) { toast.error('That’s already the current balance'); setSaving(false); return }
-        await api.post(`/admin/workers/${worker.id}/adjust-balance`, { new_balance: parsed, note })
-        toast.success('Balance updated')
+        if (newBalance === '' || parsed < 0) { toast.error(t('admin.workers.enterValid')); setSaving(false); return }
+        if (parsed === worker.balance) { toast.error(t('admin.workers.sameBalance')); setSaving(false); return }
+        await api.post(`/admin/workers/${worker.id}/adjust-balance`, { new_balance: parsed, note, occurred_at })
+        toast.success(t('admin.workers.balanceUpdated'))
       }
       onSaved()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to save')
+      toast.error(err.response?.data?.detail || t('admin.workers.saveFail'))
     } finally {
       setSaving(false)
     }
@@ -250,7 +260,7 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
 
         <div style={{ padding: '4px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>Wallet</div>
+            <div style={{ color: T.ink, fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{t('admin.workers.walletTitle')}</div>
             <div style={{ color: T.ink3, fontSize: 13, marginTop: 2 }}>{worker?.name}</div>
           </div>
           <div onClick={onClose} style={{
@@ -267,13 +277,13 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
             border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div style={{ color: T.ink3, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              Current balance
+              {t('admin.workers.currentBalance')}
             </div>
             <div style={{ color: T.ink, fontSize: 18, fontWeight: 700 }}>{formatCurrency(worker?.balance || 0)}</div>
           </div>
 
           <div style={{ display: 'flex', background: T.surfaceAlt, borderRadius: 12, padding: 3, gap: 3 }}>
-            {[{ id: 'topup', label: 'Top up' }, { id: 'set', label: 'Edit balance' }].map(m => (
+            {[{ id: 'topup', label: t('admin.workers.topupTab') }, { id: 'set', label: t('admin.workers.editBalanceTab') }].map(m => (
               <div key={m.id} onClick={() => setMode(m.id)} style={{
                 flex: 1, padding: '9px 0', borderRadius: 9, textAlign: 'center', cursor: 'pointer',
                 background: mode === m.id ? T.surface : 'transparent',
@@ -285,7 +295,7 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
           </div>
 
           {mode === 'topup' ? (
-            <Field label="Cash received">
+            <Field label={t('admin.workers.cashReceived')}>
               <input
                 type="number"
                 min="0"
@@ -297,7 +307,7 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
               />
             </Field>
           ) : (
-            <Field label="New balance">
+            <Field label={t('admin.workers.newBalance')}>
               <input
                 type="number"
                 min="0"
@@ -310,11 +320,21 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
             </Field>
           )}
 
-          <Field label="Note">
+          <Field label={t('admin.workers.date')}>
+            <input
+              type="date"
+              value={date}
+              max={todayStr()}
+              onChange={e => setDate(e.target.value)}
+              style={{ ...inputSt, borderColor: date !== todayStr() ? T.brand : T.line }}
+            />
+          </Field>
+
+          <Field label={t('admin.workers.note')}>
             <input
               value={note}
               onChange={e => setNote(e.target.value)}
-              placeholder={mode === 'topup' ? 'Optional' : 'e.g. Correcting a data-entry error'}
+              placeholder={mode === 'topup' ? t('admin.workers.noteOptional') : t('admin.workers.noteAdjust')}
               maxLength={255}
               style={inputSt}
             />
@@ -330,12 +350,12 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
             flex: 1, padding: 16, borderRadius: 16,
             background: T.surfaceAlt, color: T.ink2,
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
-          }}>Cancel</div>
+          }}>{t('admin.common.cancel')}</div>
           <div onClick={save} style={{
             flex: 2, padding: 16, borderRadius: 16,
             background: saving ? T.brandSoft : T.brand, color: saving ? T.brand : '#fff',
             fontSize: 15, fontWeight: 700, textAlign: 'center', cursor: saving ? 'default' : 'pointer',
-          }}>{saving ? 'Saving…' : mode === 'topup' ? 'Add balance' : 'Save balance'}</div>
+          }}>{saving ? t('admin.common.saving') : mode === 'topup' ? t('admin.workers.addBalance') : t('admin.workers.saveBalance')}</div>
         </div>
       </div>
     </>
@@ -344,7 +364,7 @@ function TopUpSheet({ worker, open, onClose, onSaved }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminWorkers() {
-  const navigate = useNavigate()
+  const { t } = useTranslation()
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -367,9 +387,9 @@ export default function AdminWorkers() {
     try {
       const res = await api.patch(`/admin/workers/${worker.id}`, { is_active: !worker.is_active })
       setWorkers(prev => prev.map(w => w.id === worker.id ? res.data : w))
-      toast.success(res.data.is_active ? 'Worker activated' : 'Worker deactivated')
+      toast.success(res.data.is_active ? t('admin.workers.activated') : t('admin.workers.deactivated'))
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to update')
+      toast.error(err.response?.data?.detail || t('admin.workers.updateFail'))
     }
   }
 
@@ -397,13 +417,8 @@ export default function AdminWorkers() {
       {/* Header */}
       <div style={{ padding: '8px 20px 14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <div onClick={() => navigate('/admin/profile')} style={{ cursor: 'pointer', display: 'flex' }}>
-              <Ic name="back" size={20} color={T.ink3} />
-            </div>
-            <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500 }}>{allWorkers.length} workers</div>
-          </div>
-          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>Workers</div>
+          <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{t('admin.workers.count', { count: allWorkers.length })}</div>
+          <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('admin.workers.title')}</div>
         </div>
         <div onClick={openAdd} style={{
           display: 'flex', alignItems: 'center', gap: 6,
@@ -412,7 +427,7 @@ export default function AdminWorkers() {
           fontSize: 14, fontWeight: 700, cursor: 'pointer',
         }}>
           <Ic name="plus" size={16} color="#fff" stroke={2.2} />
-          Add
+          {t('admin.workers.add')}
         </div>
       </div>
 
@@ -426,7 +441,7 @@ export default function AdminWorkers() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Search by name or employee ID"
+            placeholder={t('admin.workers.search')}
             style={{
               flex: 1, border: 'none', outline: 'none', background: 'transparent',
               fontSize: 15, color: T.ink, fontFamily: FONT,
@@ -443,12 +458,12 @@ export default function AdminWorkers() {
       {/* Worker list */}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
-          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>Loading…</div>
+          <div style={{ color: T.ink3, textAlign: 'center', padding: 30, fontSize: 14 }}>{t('admin.common.loading')}</div>
         ) : workerList.length === 0 ? (
           <div style={{
             background: T.surface, borderRadius: 18, padding: 30,
             border: `1px dashed ${T.line}`, textAlign: 'center', color: T.ink3, fontSize: 14,
-          }}>{q ? 'No matching workers.' : 'No workers yet. Tap Add to create the first one.'}</div>
+          }}>{q ? t('admin.workers.noMatch') : t('admin.workers.none')}</div>
         ) : workerList.map(w => {
           const initials = w.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
           return (
@@ -477,7 +492,7 @@ export default function AdminWorkers() {
                   background: w.is_active ? T.goodSoft : T.surfaceAlt,
                   color: w.is_active ? T.good : T.ink3,
                   fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase',
-                }}>{w.is_active ? 'Active' : 'Inactive'}</div>
+                }}>{w.is_active ? t('admin.workers.active') : t('admin.workers.inactive')}</div>
               </div>
 
               <div style={{
@@ -490,7 +505,7 @@ export default function AdminWorkers() {
                   fontSize: 13, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 }}>
-                  <Ic name="edit" size={13} color={T.brand} /> Edit
+                  <Ic name="edit" size={13} color={T.brand} /> {t('admin.workers.edit')}
                 </div>
                 <div onClick={() => setTopUpWorker(w)} style={{
                   flex: 1, padding: '9px 0', borderRadius: 10,
@@ -498,7 +513,7 @@ export default function AdminWorkers() {
                   fontSize: 13, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 }}>
-                  <Ic name="wallet" size={13} color={T.warn} /> Top up
+                  <Ic name="wallet" size={13} color={T.warn} /> {t('admin.workers.topUp')}
                 </div>
                 <div onClick={() => toggleActive(w)} style={{
                   flex: 1, padding: '9px 0', borderRadius: 10,
@@ -506,7 +521,7 @@ export default function AdminWorkers() {
                   color: w.is_active ? T.bad : T.good,
                   fontSize: 13, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
                 }}>
-                  {w.is_active ? 'Deactivate' : 'Activate'}
+                  {w.is_active ? t('admin.workers.deactivate') : t('admin.workers.activate')}
                 </div>
               </div>
             </div>
