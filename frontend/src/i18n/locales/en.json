@@ -379,7 +379,9 @@
       "enterValid": "Enter a valid balance",
       "sameBalance": "That's already the current balance",
       "toppedUp": "Balance topped up",
-      "balanceUpdated": "Balance updated"
+      "balanceUpdated": "Balance updated",
+      "exportBalances": "Balances",
+      "exportFail": "Export failed"
     },
     "walletLedger": {
       "title": "Wallet ledger",

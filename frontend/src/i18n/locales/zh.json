@@ -379,7 +379,9 @@
       "enterValid": "请输入有效的余额",
       "sameBalance": "这已经是当前余额",
       "toppedUp": "余额已充值",
-      "balanceUpdated": "余额已更新"
+      "balanceUpdated": "余额已更新",
+      "exportBalances": "余额表",
+      "exportFail": "导出失败"
     },
     "walletLedger": {
       "title": "钱包账户",

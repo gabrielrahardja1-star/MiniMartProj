@@ -643,6 +643,61 @@ def admin_list_workers(
     return db.query(Worker).order_by(Worker.employee_id).all()
 
 
+@router.get("/workers/balances.xlsx")
+def admin_export_worker_balances_xlsx(
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """Current wallet balance for every worker, as an .xlsx workbook — a
+    snapshot for payroll / reconciliation. One row per worker, ordered by
+    employee ID, with a grand total."""
+    workers = (
+        db.query(Worker)
+        .filter(Worker.role == "worker")
+        .order_by(Worker.employee_id)
+        .all()
+    )
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Balances"
+
+    headers = ["Employee ID", "HR ID", "Name", "Active", "Balance (Rp)"]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    ws.freeze_panes = "A2"
+
+    for w in workers:
+        ws.append([
+            w.employee_id, w.hr_employee_id or "", w.name,
+            "Yes" if w.is_active else "No", float(w.balance),
+        ])
+        ws.cell(row=ws.max_row, column=5).number_format = "#,##0"
+
+    total = round(sum(float(w.balance) for w in workers), 2)
+    total_row = ws.max_row + 2
+    ws.cell(row=total_row, column=4, value="TOTAL").font = Font(bold=True)
+    tv = ws.cell(row=total_row, column=5, value=total)
+    tv.font = Font(bold=True)
+    tv.number_format = "#,##0"
+
+    widths = [16, 14, 30, 10, 16]
+    for i, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="employee_balances_{stamp}.xlsx"'},
+    )
+
+
 @router.post("/workers/", response_model=WorkerOut, status_code=status.HTTP_201_CREATED)
 def admin_create_worker(
     body: WorkerCreateRequest,

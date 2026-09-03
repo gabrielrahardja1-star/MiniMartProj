@@ -10,6 +10,21 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// download a protected file endpoint via fetch (an anchor can't carry the
+// bearer token); keeps the object URL alive until the browser starts the save
+async function downloadFile(url, filename) {
+  const token = localStorage.getItem('token')
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error((await res.text().catch(() => '')) || `HTTP ${res.status}`)
+  const href = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = href
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(href) }, 2000)
+}
+
 // ── Shared field components (must be outside WorkerSheet to avoid remount) ───
 const inputSt = {
   width: '100%', boxSizing: 'border-box',
@@ -371,6 +386,21 @@ export default function AdminWorkers() {
   const [editWorker, setEditWorker] = useState(null)
   const [topUpWorker, setTopUpWorker] = useState(null)
   const [q, setQ] = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  async function exportBalances() {
+    setExporting(true)
+    try {
+      await downloadFile(
+        '/api/admin/workers/balances.xlsx',
+        `employee_balances_${todayStr()}.xlsx`,
+      )
+    } catch (err) {
+      toast.error(`${t('admin.workers.exportFail')}: ${err.message}`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -420,14 +450,27 @@ export default function AdminWorkers() {
           <div style={{ color: T.ink3, fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{t('admin.workers.count', { count: allWorkers.length })}</div>
           <div style={{ color: T.ink, fontSize: 26, fontWeight: 700, letterSpacing: -0.5 }}>{t('admin.workers.title')}</div>
         </div>
-        <div onClick={openAdd} style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: T.brand, color: '#fff',
-          padding: '10px 16px', borderRadius: 999,
-          fontSize: 14, fontWeight: 700, cursor: 'pointer',
-        }}>
-          <Ic name="plus" size={16} color="#fff" stroke={2.2} />
-          {t('admin.workers.add')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div onClick={exporting ? undefined : exportBalances} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: T.surface, color: T.ink,
+            border: `1px solid ${T.line}`,
+            padding: '9px 14px', borderRadius: 999,
+            fontSize: 14, fontWeight: 700, cursor: exporting ? 'default' : 'pointer',
+            opacity: exporting ? 0.6 : 1,
+          }}>
+            <Ic name="download" size={16} color={T.ink} stroke={2.2} />
+            {exporting ? t('admin.common.exporting') : t('admin.workers.exportBalances')}
+          </div>
+          <div onClick={openAdd} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: T.brand, color: '#fff',
+            padding: '10px 16px', borderRadius: 999,
+            fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <Ic name="plus" size={16} color="#fff" stroke={2.2} />
+            {t('admin.workers.add')}
+          </div>
         </div>
       </div>
 
