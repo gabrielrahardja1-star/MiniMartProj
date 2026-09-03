@@ -401,6 +401,7 @@
       "exportCsv": "导出 CSV",
       "monthlyExcel": "月度 Excel",
       "totalDeductions": "总扣款",
+      "totalDeposits": "总充值",
       "workers": "员工",
       "orders": "订单",
       "spendingByWorker": "各员工消费",

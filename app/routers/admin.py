@@ -935,6 +935,27 @@ def spending_report(
     return sorted(totals.values(), key=lambda s: s.employee_id)
 
 
+@router.get("/reports/deposits")
+def deposits_report(
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    """Total wallet top-ups (deposits) in the same date range the spending
+    report uses. created_at is naive UTC, matched directly."""
+    q = db.query(WalletTransaction).filter(WalletTransaction.type == "topup")
+    if date_from:
+        q = q.filter(WalletTransaction.created_at >= date_from)
+    if date_to:
+        q = q.filter(WalletTransaction.created_at <= date_to)
+    topups = q.all()
+    return {
+        "deposits_total": round(sum(float(t.amount) for t in topups), 2),
+        "deposit_count": len(topups),
+    }
+
+
 @router.get("/reports/spending.csv")
 def spending_report_csv(
     date_from: datetime | None = Query(None),

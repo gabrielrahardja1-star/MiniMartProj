@@ -412,6 +412,26 @@ def test_backdated_topup_rejects_future(client, admin_token, worker):
     assert resp.status_code == 400
 
 
+def test_deposits_report_sums_topups_in_range(client, admin_token, db_session, worker):
+    for occurred_at, amt in [
+        ("2026-08-15T09:00:00", 100_000),   # before range
+        ("2026-09-01T09:00:00", 300_000),   # in range
+        ("2026-09-02T09:00:00", 200_000),   # in range
+    ]:
+        client.post(
+            f"/api/admin/workers/{worker.id}/topup",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"amount": amt, "occurred_at": occurred_at},
+        )
+    resp = client.get(
+        "/api/admin/reports/deposits",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        params={"date_from": "2026-09-01T00:00:00", "date_to": "2026-09-03T23:59:59"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deposits_total": 500_000.0, "deposit_count": 2}
+
+
 def test_delete_cashier_sale_removes_it_and_reverses(client, admin_token, db_session, worker, products):
     product = products[0]  # Work Gloves @ 5.50, stock 10
     worker.balance = 89.0   # 100 - 11 after the sale

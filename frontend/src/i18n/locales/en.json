@@ -401,6 +401,7 @@
       "exportCsv": "Export CSV",
       "monthlyExcel": "Monthly Excel",
       "totalDeductions": "Total Deductions",
+      "totalDeposits": "Total Deposits",
       "workers": "Workers",
       "orders": "Orders",
       "spendingByWorker": "Spending by Worker",

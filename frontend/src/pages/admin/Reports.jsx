@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Download, Calendar, TrendingUp, Users, ShoppingBag, FileSpreadsheet } from 'lucide-react'
+import { Download, Calendar, TrendingUp, TrendingDown, Users, ShoppingBag, FileSpreadsheet } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/format'
 import Button from '../../components/Button'
 import PageHeader from '../../components/PageHeader'
@@ -58,6 +58,7 @@ function BarChart({ data, maxValue }) {
 export default function Reports() {
   const { t } = useTranslation()
   const [report, setReport] = useState([])
+  const [deposits, setDeposits] = useState(0)
   const [loading, setLoading] = useState(false)
   const [monthlyExporting, setMonthlyExporting] = useState(false)
   const [txExporting, setTxExporting] = useState(false)
@@ -74,10 +75,13 @@ export default function Reports() {
     if (!rangeValid) return
     setLoading(true)
     try {
-      const { data } = await api.get('/admin/reports/spending', {
-        params: { date_from: `${from}T00:00:00`, date_to: `${to}T23:59:59` },
-      })
-      setReport(data)
+      const params = { date_from: `${from}T00:00:00`, date_to: `${to}T23:59:59` }
+      const [spending, dep] = await Promise.all([
+        api.get('/admin/reports/spending', { params }),
+        api.get('/admin/reports/deposits', { params }),
+      ])
+      setReport(spending.data)
+      setDeposits(dep.data.deposits_total)
     } catch { toast.error(t('admin.reports.loadFail')) }
     finally { setLoading(false) }
   }
@@ -127,7 +131,8 @@ export default function Reports() {
   const maxValue = Math.max(...report.map(r => r.total_deduction), 1)
 
   const summaryCards = [
-    { icon: TrendingUp, label: t('admin.reports.totalDeductions'), value: formatCurrency(total), accent: 'border-amber-500' },
+    { icon: TrendingDown, label: t('admin.reports.totalDeductions'), value: formatCurrency(total), accent: 'border-amber-500' },
+    { icon: TrendingUp, label: t('admin.reports.totalDeposits'), value: formatCurrency(deposits), accent: 'border-emerald-500' },
     { icon: Users, label: t('admin.reports.workers'), value: report.length, accent: 'border-blue-400' },
     { icon: ShoppingBag, label: t('admin.reports.orders'), value: totalOrders, accent: 'border-green-400' },
   ]
@@ -180,7 +185,7 @@ export default function Reports() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {summaryCards.map(({ icon, label, value, accent }) => {
           const SummaryIcon = icon
           return (
