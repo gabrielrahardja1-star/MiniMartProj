@@ -64,9 +64,10 @@ layers protect it:
 1. **`scripts/pg/pg_hba.conf`** (the real gate). Already contains Looker Studio's
    published range (`142.251.74.0/23`, checked 2026-09-07 from
    <https://docs.cloud.google.com/looker/docs/studio/connect-to-postgresql>).
-   If Google changes it, edit the file and reload:
-   `docker compose exec postgres pg_ctl reload` (no restart needed). The trailing
-   `reject` rules deny everything else.
+   If Google changes it, edit the file, `git push`/`pull`, then
+   `docker compose up -d --force-recreate postgres` — the file is bind-mounted and
+   changes inode on `git pull`, so a plain restart or `pg_ctl reload` keeps serving
+   the old copy. The trailing `reject` rules deny everything else.
 
 2. **Hostinger cloud firewall** (belt-and-braces) — if available, restrict inbound
    `5433` to the same ranges there too.
