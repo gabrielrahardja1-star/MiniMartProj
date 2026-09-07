@@ -61,17 +61,12 @@ refreshed every 15 minutes. Nothing in the app reads from Postgres.
 Docker publishes `5433` by editing iptables directly, which **bypasses ufw**. Two
 layers protect it:
 
-1. **`scripts/pg/pg_hba.conf`** (the real gate). Get Looker Studio's current
-   published IP ranges from
-   <https://support.google.com/looker-studio/answer/7088031> and add one line per
-   CIDR in the marked section:
-
-   ```
-   host  minimart_reporting  looker_ro  <cidr>  scram-sha-256
-   ```
-
-   Then reload: `docker compose exec postgres pg_ctl reload`
-   (no restart needed). The trailing `reject` rules deny everything else.
+1. **`scripts/pg/pg_hba.conf`** (the real gate). Already contains Looker Studio's
+   published range (`142.251.74.0/23`, checked 2026-09-07 from
+   <https://docs.cloud.google.com/looker/docs/studio/connect-to-postgresql>).
+   If Google changes it, edit the file and reload:
+   `docker compose exec postgres pg_ctl reload` (no restart needed). The trailing
+   `reject` rules deny everything else.
 
 2. **Hostinger cloud firewall** (belt-and-braces) — if available, restrict inbound
    `5433` to the same ranges there too.
