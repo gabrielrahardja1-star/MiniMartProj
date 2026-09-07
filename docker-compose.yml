@@ -48,10 +48,12 @@ services:
       - -c
       - listen_addresses=*
     ports:
-      # Published for Looker Studio. The real access gate is pg_hba.conf (Docker
-      # port publishing bypasses ufw) — keep the reject rule there tight, and
-      # prefer also restricting 5432 at the Hostinger cloud firewall.
-      - "5432:5432"
+      # Host port 5433 (not 5432) — the VPS already runs a system PostgreSQL on
+      # 5432. Container is still 5432 internally, so REPORTING_DATABASE_URL is
+      # unchanged; Looker Studio connects to <host>:5433.
+      # The real access gate is pg_hba.conf (Docker port publishing bypasses ufw);
+      # also restrict 5433 at the Hostinger cloud firewall if available.
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s

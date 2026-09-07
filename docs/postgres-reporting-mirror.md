@@ -12,7 +12,7 @@ refreshed every 15 minutes. Nothing in the app reads from Postgres.
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yml` → `postgres` service | `postgres:16-alpine`, volume `pg_data`, port `5432` published |
+| `docker-compose.yml` → `postgres` service | `postgres:16-alpine`, volume `pg_data`, host port `5433` published (5432 is taken by a system Postgres) |
 | `scripts/sync_to_postgres.py` | Full-refresh copy of all 7 tables, in one transaction |
 | `scripts/pg/10-init-readonly.sh` | First-boot only: creates the `looker_ro` SELECT-only role |
 | `scripts/pg/pg_hba.conf` | Client-auth allowlist — **you add Looker's IP ranges here** |
@@ -56,9 +56,9 @@ refreshed every 15 minutes. Nothing in the app reads from Postgres.
 5. **Backups** — add `minimart_reporting` is *not* worth backing up (it's derived).
    Keep backing up the SQLite file as before.
 
-## Locking down port 5432
+## Locking down port 5433
 
-Docker publishes `5432` by editing iptables directly, which **bypasses ufw**. Two
+Docker publishes `5433` by editing iptables directly, which **bypasses ufw**. Two
 layers protect it:
 
 1. **`scripts/pg/pg_hba.conf`** (the real gate). Get Looker Studio's current
@@ -74,7 +74,7 @@ layers protect it:
    (no restart needed). The trailing `reject` rules deny everything else.
 
 2. **Hostinger cloud firewall** (belt-and-braces) — if available, restrict inbound
-   `5432` to the same ranges there too.
+   `5433` to the same ranges there too.
 
 The `looker_ro` role has `SELECT` only and can only reach `minimart_reporting`,
 never the app.
@@ -86,7 +86,7 @@ Looker Studio → Add data → **PostgreSQL** connector:
 | Field | Value |
 |---|---|
 | Host | `76.13.19.246` |
-| Port | `5432` |
+| Port | `5433` (the VPS already runs a system Postgres on 5432) |
 | Database | `minimart_reporting` |
 | Username | `looker_ro` |
 | Password | `LOOKER_RO_PASSWORD` |
