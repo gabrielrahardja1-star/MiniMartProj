@@ -6,7 +6,7 @@ FROM python:3.11-slim
 
 # Install system dependencies:
 # - tesseract-ocr: the OCR engine pytesseract wraps
-# - libpq-dev / gcc: needed if you later switch to PostgreSQL
+# - libpq-dev / gcc: build headers for the psycopg PostgreSQL driver
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
@@ -25,13 +25,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
-# Create a directory for the SQLite database file to persist data
+# Legacy SQLite location — kept for the one-shot migration / rollback path only
 RUN mkdir -p /app/data
 
 # Expose the port the app runs on
 EXPOSE 8000
 
-# On startup: run Alembic migrations, then start the server
+# On startup: apply migrations, ensure schema + seed admin, then serve.
+# Both steps are idempotent against the Postgres database.
 CMD alembic upgrade head && \
     python -m app.db.init_db && \
     uvicorn app.main:app --host 0.0.0.0 --port 8000
