@@ -3,11 +3,10 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-key-change-in-production"
-    DATABASE_URL: str = "sqlite:///./minimart.db"
-    # Read-only Postgres mirror for Looker Studio dashboards. SQLite (DATABASE_URL)
-    # stays the source of truth; scripts/sync_to_postgres.py copies every row here
-    # on a schedule. Leave blank to disable the sync entirely (local dev default).
-    REPORTING_DATABASE_URL: str = ""
+    # Postgres. The default points at the `postgres` container published on 5433
+    # for local dev (`docker compose up -d postgres`); the server overrides it via
+    # .env with the in-network host `postgres:5432`.
+    DATABASE_URL: str = "postgresql+psycopg://minimart:minimart@localhost:5433/minimart"
     ENV: str = "development"
     DEBUG: bool = True
 

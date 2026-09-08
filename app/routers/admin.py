@@ -372,7 +372,9 @@ def refund_order(
         db.query(Order)
         .options(joinedload(Order.items))
         .filter(Order.id == order_id)
-        .with_for_update()
+        # of=Order: lock just the orders row, not the LEFT-JOINed items —
+        # Postgres rejects FOR UPDATE on the nullable side of an outer join.
+        .with_for_update(of=Order)
         .first()
     )
     if not order:
@@ -448,7 +450,9 @@ def edit_cashier_sale(
         db.query(Order)
         .options(joinedload(Order.items).joinedload(OrderItem.product), joinedload(Order.worker))
         .filter(Order.id == order_id)
-        .with_for_update()
+        # of=Order: lock only the orders row (see note above) — the LEFT-JOINed
+        # items/worker can't be on the FOR UPDATE list under Postgres.
+        .with_for_update(of=Order)
         .first()
     )
     if not order:
@@ -579,7 +583,7 @@ def delete_cashier_sale(
         db.query(Order)
         .options(joinedload(Order.items))
         .filter(Order.id == order_id)
-        .with_for_update()
+        .with_for_update(of=Order)  # lock the orders row only (see note above)
         .first()
     )
     if not order:

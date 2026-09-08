@@ -1,13 +1,22 @@
 """
 Shared fixtures for all tests.
-Uses an in-memory SQLite database so tests never touch minimart.db.
+
+Runs against a real PostgreSQL database (parity with production). Point it with
+TEST_DATABASE_URL; the default expects the `postgres` compose service published
+on localhost:5433 (`docker compose up -d postgres`).
+
+The schema is built once per session. Each test runs inside a transaction that is
+rolled back on teardown (app-level `commit()` calls become savepoints), so tests
+stay isolated without recreating tables every time.
 """
+import os
+
 import bcrypt
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.db.session import get_db
@@ -15,28 +24,54 @@ from app.main import app
 from app.models.worker import Worker
 from app.models.product import Product
 
-TEST_DB_URL = "sqlite:///:memory:"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://minimart:minimart@localhost:5433/minimart_test",
+)
 
 
-@pytest.fixture(scope="function")
-def db_engine():
-    # StaticPool forces all connections to share the same in-memory database
-    engine = create_engine(
-        TEST_DB_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+def _ensure_database_exists(url: str) -> None:
+    target = make_url(url)
+    admin_engine = create_engine(
+        target.set(database="postgres"), isolation_level="AUTOCOMMIT"
     )
+    with admin_engine.connect() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM pg_database WHERE datname = :n"),
+            {"n": target.database},
+        ).scalar()
+        if not exists:
+            conn.execute(text(f'CREATE DATABASE "{target.database}"'))
+    admin_engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def db_engine():
+    _ensure_database_exists(TEST_DATABASE_URL)
+    engine = create_engine(TEST_DATABASE_URL)
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 @pytest.fixture(scope="function")
 def db_session(db_engine):
-    Session = sessionmaker(bind=db_engine)
+    connection = db_engine.connect()
+    trans = connection.begin()
+    Session = sessionmaker(
+        bind=connection,
+        autoflush=True,
+        join_transaction_mode="create_savepoint",
+    )
     session = Session()
-    yield session
-    session.close()
+    try:
+        yield session
+    finally:
+        session.close()
+        trans.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
